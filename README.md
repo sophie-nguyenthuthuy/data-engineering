@@ -2,7 +2,7 @@
 
 A curated monorepo aggregating my data engineering work — pipelines, storage engines, query engines, governance tooling, and distributed-systems primitives. Each subdirectory is an independent project with its own README and runtime.
 
-**93 projects** total: **78 built** across 6 categories, **15 research & design specs** across 7 categories.
+**93 projects** total: **78 built** across 6 categories, plus **15 research MVPs** across 7 categories — each with a working core algorithm, passing test suite, and runnable demo (**106 tests, all green**).
 
 ## Directory
 
@@ -14,7 +14,7 @@ A curated monorepo aggregating my data engineering work — pipelines, storage e
 - [Data Warehouse & Lakehouse](#data-warehouse--lakehouse) (8)
 - [Distributed Systems & Infrastructure](#distributed-systems--infrastructure) (10)
 
-**Research & Design Specs (15):**
+**Research MVPs (15):**
 - [Query Processing & Compilation](#query-processing--compilation)
 - [Distributed Systems Theory](#distributed-systems-theory)
 - [Storage Engine Internals](#storage-engine-internals)
@@ -135,9 +135,35 @@ A curated monorepo aggregating my data engineering work — pipelines, storage e
 
 ---
 
-## Research & Design Specs
+## Research MVPs
 
-Project ideas at the spec-and-skeleton stage. Each has a detailed design-doc README (architecture, components, hard parts, references, roadmap) and an empty `src/` + `tests/` ready for implementation.
+Working implementations of 15 research-grade project ideas. Each has:
+- **Core algorithm** in `src/` (3–6 modules, 200–1000 LOC of Python)
+- **Passing test suite** (5–9 tests per project, all green)
+- **Runnable demo** in `examples/` showing the system in action
+- **Makefile** with `install`, `test`, `demo` targets
+
+Aggregate: **106 tests pass** across the 15 MVPs.
+
+| Project | Tests |
+|---|---|
+| provenance-semiring-engine | 9/9 |
+| aqp-coreset-engine | 6/6 |
+| shuffle-dp-engine | 7/7 |
+| probabilistic-watermarks | 6/6 |
+| timely-dataflow-engine | 7/7 |
+| causal-feature-store | 6/6 |
+| b-epsilon-tree | 8/8 |
+| art-mvcc-index | 9/9 |
+| ivm-nested-aggregates | 8/8 |
+| disaggregated-storage-engine | 7/7 |
+| tla-verified-pipeline | 6/6 |
+| learned-layout-optimizer | 7/7 |
+| forecasting-pipeline-scheduler | 7/7 |
+| physical-plan-compiler | 8/8 |
+| adversarial-chaos-engine | 5/5 |
+
+Pedagogical (single-process Python) — not production clones of HyPer/Naiad/DuckDB. The core algorithms are real and tested.
 
 ### Query Processing & Compilation
 
@@ -212,5 +238,5 @@ data-engineering/
 
 - All cloned via `git clone --depth 1` (no full history). The originals on GitHub still hold full history.
 - `bitcoinMonitor/` is a local MVP. Stack: CoinGecko poller → SQLite → FastAPI + Chart.js dashboard.
-- **Research & Design Specs** are at the spec stage — README + skeleton `src/`/`tests/` only. The 6 "Built" entries cross-referenced in those sections link to the corresponding implemented repos.
+- **Research MVPs** are working implementations — `cd <project>/ && make install && make test && make demo`. Pedagogical (Python, single-process) not production (no actual LLVM JIT, RDMA, Kubernetes). The 6 "Built" entries cross-referenced in those sections link to the corresponding fuller implementations.
 - Each project's runtime is self-contained — see its README for setup.
