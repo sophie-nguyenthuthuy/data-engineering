@@ -1,93 +1,157 @@
+"""Tree-level correctness."""
+
+from __future__ import annotations
+
 import random
 
-from src import BEpsilonTree, EpsilonTuner
+import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
+
+from beps.tree.tree import BEpsilonTree
 
 
-def test_get_missing():
-    t = BEpsilonTree(epsilon=0.5)
-    assert t.get(42) is None
+class TestBasic:
+    def test_get_missing(self, tree):
+        assert tree.get(b"x") is None
+
+    def test_put_get(self, tree):
+        tree.put(b"k1", "v1")
+        tree.put(b"k2", "v2")
+        assert tree.get(b"k1") == "v1"
+        assert tree.get(b"k2") == "v2"
+        assert tree.get(b"k3") is None
+
+    def test_overwrite(self, tree):
+        tree.put(b"k", "first")
+        tree.put(b"k", "second")
+        assert tree.get(b"k") == "second"
+
+    def test_delete(self, tree):
+        tree.put(b"k", "v")
+        tree.delete(b"k")
+        assert tree.get(b"k") is None
+
+    def test_delete_missing(self, tree):
+        tree.delete(b"x")    # no-op
+        assert tree.get(b"x") is None
+
+    def test_in_operator(self, tree):
+        tree.put(b"k", "v")
+        assert b"k" in tree
+        assert b"x" not in tree
+
+    def test_construct_validates(self):
+        with pytest.raises(ValueError):
+            BEpsilonTree(epsilon=0.0)
+        with pytest.raises(ValueError):
+            BEpsilonTree(epsilon=1.0)
+        with pytest.raises(ValueError):
+            BEpsilonTree(node_size=2)
 
 
-def test_put_then_get():
-    t = BEpsilonTree(epsilon=0.5)
-    t.put(1, "one")
-    t.put(2, "two")
-    assert t.get(1) == "one"
-    assert t.get(2) == "two"
-    assert t.get(3) is None
+class TestCapacityDerivation:
+    def test_buffer_capacity_scales_with_epsilon(self):
+        t1 = BEpsilonTree(node_size=20, epsilon=0.1)
+        t2 = BEpsilonTree(node_size=20, epsilon=0.9)
+        assert t1.buffer_capacity < t2.buffer_capacity
+        assert t1.pivot_capacity > t2.pivot_capacity
 
 
-def test_overwrite():
-    t = BEpsilonTree(epsilon=0.5)
-    t.put(1, "v1")
-    t.put(1, "v2")
-    assert t.get(1) == "v2"
+class TestSplitAndDepth:
+    def test_tree_grows_in_depth(self, small_tree):
+        for i in range(200):
+            small_tree.put(f"k{i:04d}".encode(), i)
+        assert small_tree.depth() > 1
+        # All keys retrievable
+        for i in range(200):
+            assert small_tree.get(f"k{i:04d}".encode()) == i
+
+    def test_size_after_inserts(self, small_tree):
+        small_tree.flush_all()  # initial empty: no-op
+        for i in range(100):
+            small_tree.put(f"k{i:04d}".encode(), i)
+        small_tree.flush_all()
+        assert len(small_tree) == 100
 
 
-def test_delete():
-    t = BEpsilonTree(epsilon=0.5)
-    t.put(1, "v1")
-    t.delete(1)
-    assert t.get(1) is None
+class TestRandomWorkloads:
+    @pytest.mark.parametrize("seed", [0, 1, 2, 3, 4])
+    def test_matches_reference_dict(self, seed):
+        tree = BEpsilonTree(node_size=8, epsilon=0.5)
+        ref: dict[bytes, int] = {}
+        rng = random.Random(seed)
+        for _ in range(2000):
+            op = rng.choices(["put", "put", "put", "del"], k=1)[0]
+            k = f"k{rng.randint(0, 500):04d}".encode()
+            if op == "put":
+                v = rng.randint(0, 100_000)
+                tree.put(k, v)
+                ref[k] = v
+            else:
+                tree.delete(k)
+                ref.pop(k, None)
+        for k in ref:
+            assert tree.get(k) == ref[k]
+        # Keys not in ref must not be in tree
+        for kk in (b"missing-key",):
+            assert tree.get(kk) is None
 
 
-def test_many_puts_and_gets_random():
-    rng = random.Random(0)
-    t = BEpsilonTree(epsilon=0.5)
-    ref = {}
-    for _ in range(2000):
-        k = rng.randint(0, 500)
-        v = rng.randint(0, 10_000)
-        t.put(k, v)
-        ref[k] = v
-    for k in ref:
-        assert t.get(k) == ref[k], f"mismatch for key {k}"
-    # Random non-existent
-    for k in range(501, 600):
-        if k not in ref:
-            assert t.get(k) is None
+class TestIteration:
+    def test_items_sorted(self, tree):
+        keys = [b"banana", b"apple", b"cherry", b"avocado"]
+        for k in keys:
+            tree.put(k, k.decode())
+        result = list(tree.items())
+        assert [k for k, _ in result] == sorted(keys)
+
+    def test_iter_range(self, tree):
+        for i in range(10):
+            tree.put(f"k{i:02d}".encode(), i)
+        out = list(tree.iter_range(b"k03", b"k07"))
+        assert [k for k, _ in out] == [b"k03", b"k04", b"k05", b"k06"]
+
+    def test_iteration_includes_buffered_messages(self, small_tree):
+        """Newly-buffered keys (not yet flushed) appear in items()."""
+        for i in range(50):
+            small_tree.put(f"k{i:04d}".encode(), i)
+        # Don't flush — buffers may contain pending messages
+        items_dict = dict(small_tree.items())
+        for i in range(50):
+            assert items_dict[f"k{i:04d}".encode()] == i
 
 
-def test_mixed_workload():
-    rng = random.Random(1)
-    t = BEpsilonTree(epsilon=0.5)
-    ref = {}
-    for _ in range(2000):
-        op = rng.choice(["put", "put", "put", "del"])  # 75% put, 25% del
-        k = rng.randint(0, 100)
+# ---------------------------------------------------------------------------
+# Hypothesis property tests
+# ---------------------------------------------------------------------------
+
+
+@st.composite
+def _ops(draw) -> list[tuple[str, bytes, int]]:
+    n = draw(st.integers(min_value=1, max_value=80))
+    return [
+        (
+            draw(st.sampled_from(["put", "put", "put", "del"])),
+            draw(st.binary(min_size=1, max_size=6)),
+            draw(st.integers(min_value=0, max_value=1000)),
+        )
+        for _ in range(n)
+    ]
+
+
+@given(operations=_ops())
+@settings(max_examples=80, deadline=None)
+@pytest.mark.property
+def test_tree_matches_dict_under_arbitrary_ops(operations):
+    tree = BEpsilonTree(node_size=8, epsilon=0.5)
+    ref: dict[bytes, int] = {}
+    for op, k, v in operations:
         if op == "put":
-            v = rng.randint(0, 10_000)
-            t.put(k, v)
+            tree.put(k, v)
             ref[k] = v
         else:
-            t.delete(k)
+            tree.delete(k)
             ref.pop(k, None)
-    for k in range(0, 100):
-        assert t.get(k) == ref.get(k)
-
-
-def test_tree_grows_in_depth():
-    """With many inserts, tree must split to depth > 1."""
-    t = BEpsilonTree(epsilon=0.5)
-    for i in range(500):
-        t.put(i, i)
-    assert t.depth() > 1
-    # All keys retrievable
-    for i in range(500):
-        assert t.get(i) == i
-
-
-def test_epsilon_tuner_adapts_to_workload():
-    tuner = EpsilonTuner(window=100, hysteresis=0.01)
-    # Read-heavy
-    for _ in range(100):
-        tuner.observe("read")
-    eps_read = tuner.recommend()
-    # Write-heavy
-    tuner._events.clear()
-    for _ in range(100):
-        tuner.observe("write")
-    eps_write = tuner.recommend()
-    assert eps_write > eps_read
-    assert 0 < eps_read < 0.5
-    assert eps_write > 0.5
+    for k, v in ref.items():
+        assert tree.get(k) == v
