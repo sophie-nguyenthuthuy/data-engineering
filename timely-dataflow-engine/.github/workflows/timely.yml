@@ -1,0 +1,36 @@
+name: timely-dataflow-engine
+
+on:
+  push:
+    paths:
+      - "timely-dataflow-engine/**"
+      - ".github/workflows/timely.yml"
+  pull_request:
+    paths:
+      - "timely-dataflow-engine/**"
+      - ".github/workflows/timely.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: timely-dataflow-engine
+    strategy:
+      matrix:
+        python: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: timely-dataflow-engine/pyproject.toml
+      - name: Install
+        run: pip install -e ".[dev]"
+      - name: Lint
+        run: ruff check src tests benchmarks
+      - name: Test
+        run: pytest -q
+      - name: Bench (smoke)
+        run: python -m benchmarks.bench_pagerank
