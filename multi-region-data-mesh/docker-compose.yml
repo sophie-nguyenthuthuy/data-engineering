@@ -1,0 +1,65 @@
+version: "3.9"
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Multi-Region Active-Active Data Mesh — two-region local simulation
+#
+#  region-a  →  http://localhost:8001/dashboard
+#  region-b  →  http://localhost:8002/dashboard
+#
+#  Both nodes replicate to each other every 2 s.
+#  Change MESH_CONFLICT_STRATEGY to:  lww | crdt | business
+# ─────────────────────────────────────────────────────────────────────────────
+
+services:
+
+  region-a:
+    build: .
+    container_name: mesh-region-a
+    environment:
+      MESH_REGION_ID: "region-a"
+      MESH_PORT: "8000"
+      MESH_DB_PATH: "/data/region_a.db"
+      MESH_PEER_URLS: "http://region-b:8000"
+      MESH_CONFLICT_STRATEGY: "lww"
+      MESH_REPLICATION_INTERVAL_SECONDS: "2.0"
+    ports:
+      - "8001:8000"
+    volumes:
+      - region-a-data:/data
+    networks:
+      - mesh-net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  region-b:
+    build: .
+    container_name: mesh-region-b
+    environment:
+      MESH_REGION_ID: "region-b"
+      MESH_PORT: "8000"
+      MESH_DB_PATH: "/data/region_b.db"
+      MESH_PEER_URLS: "http://region-a:8000"
+      MESH_CONFLICT_STRATEGY: "lww"
+      MESH_REPLICATION_INTERVAL_SECONDS: "2.0"
+    ports:
+      - "8002:8000"
+    volumes:
+      - region-b-data:/data
+    networks:
+      - mesh-net
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  region-a-data:
+  region-b-data:
+
+networks:
+  mesh-net:
+    driver: bridge

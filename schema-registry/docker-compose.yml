@@ -1,0 +1,14 @@
+version: "3.9"
+services:
+  registry:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - registry_data:/app/data
+    environment:
+      - DB_PATH=/app/data/registry.db
+    restart: unless-stopped
+
+volumes:
+  registry_data:

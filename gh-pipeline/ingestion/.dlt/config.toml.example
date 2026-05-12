@@ -1,0 +1,13 @@
+[runtime]
+log_level = "INFO"
+
+[destination.bigquery]
+location = "us-central1"
+
+# Credentials come from GOOGLE_APPLICATION_CREDENTIALS in .env.
+# Alternatively, populate the section below inline (do NOT commit):
+#
+# [destination.bigquery.credentials]
+# project_id = "your-gcp-project"
+# private_key = "-----BEGIN PRIVATE KEY-----\n..."
+# client_email = "gh-pipeline@your-gcp-project.iam.gserviceaccount.com"

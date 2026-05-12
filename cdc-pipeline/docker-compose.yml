@@ -1,0 +1,150 @@
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "2181"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_LOG_RETENTION_HOURS: 168
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.5.0
+    depends_on:
+      kafka:
+        condition: service_healthy
+    ports:
+      - "8081:8081"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:29092
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+      SCHEMA_REGISTRY_SCHEMA_COMPATIBILITY_LEVEL: BACKWARD
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/subjects"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  kafka-connect:
+    image: quay.io/debezium/connect:2.5
+    depends_on:
+      kafka:
+        condition: service_healthy
+      schema-registry:
+        condition: service_healthy
+      source-db:
+        condition: service_healthy
+    ports:
+      - "8083:8083"
+    environment:
+      BOOTSTRAP_SERVERS: kafka:29092
+      GROUP_ID: cdc-connect-cluster
+      CONFIG_STORAGE_TOPIC: _cdc_connect_configs
+      OFFSET_STORAGE_TOPIC: _cdc_connect_offsets
+      STATUS_STORAGE_TOPIC: _cdc_connect_statuses
+      CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      STATUS_STORAGE_REPLICATION_FACTOR: 1
+      # Avro serialization via Schema Registry
+      KEY_CONVERTER: io.confluent.connect.avro.AvroConverter
+      VALUE_CONVERTER: io.confluent.connect.avro.AvroConverter
+      KEY_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      VALUE_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      CONNECT_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/connectors"]
+      interval: 15s
+      timeout: 10s
+      retries: 15
+
+  source-db:
+    image: postgres:15
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-cdc_source}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-cdc_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-transactional_db}
+    command: >
+      postgres
+        -c wal_level=logical
+        -c max_wal_senders=4
+        -c max_replication_slots=4
+        -c wal_keep_size=256
+    volumes:
+      - ./source-db/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - source_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cdc_source} -d ${POSTGRES_DB:-transactional_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  warehouse:
+    image: postgres:15
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: ${WAREHOUSE_USER:-dw_user}
+      POSTGRES_PASSWORD: ${WAREHOUSE_PASSWORD:-dw_secret}
+      POSTGRES_DB: ${WAREHOUSE_DB:-data_warehouse}
+    volumes:
+      - ./warehouse/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - warehouse_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${WAREHOUSE_USER:-dw_user} -d ${WAREHOUSE_DB:-data_warehouse}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  consumer:
+    build:
+      context: ./consumer
+      dockerfile: Dockerfile
+    depends_on:
+      kafka:
+        condition: service_healthy
+      schema-registry:
+        condition: service_healthy
+      warehouse:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      WAREHOUSE_DSN: postgresql://${WAREHOUSE_USER:-dw_user}:${WAREHOUSE_PASSWORD:-dw_secret}@warehouse:5432/${WAREHOUSE_DB:-data_warehouse}
+      KAFKA_GROUP_ID: cdc-consumer-group
+      TOPICS: cdc.public.users,cdc.public.orders,cdc.public.order_items
+      LAG_TOLERANCE_MS: "30000"
+      MAX_BUFFER_SIZE: "10000"
+      LOG_LEVEL: INFO
+    restart: unless-stopped
+
+volumes:
+  source_pgdata:
+  warehouse_pgdata:

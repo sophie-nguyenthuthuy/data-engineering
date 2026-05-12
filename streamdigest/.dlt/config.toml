@@ -1,0 +1,3 @@
+# dlt configuration. Secrets go in .dlt/secrets.toml (gitignored) or .env.
+[runtime]
+log_level = "WARNING"

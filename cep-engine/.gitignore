@@ -1,0 +1,42 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.venv/
+venv/
+env/
+.env
+
+# Numba cache
+__numba_cache__/
+*.nbi
+*.nbc
+
+# pytest
+.pytest_cache/
+.cache/
+
+# coverage
+.coverage
+htmlcov/
+
+# mypy
+.mypy_cache/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+
+# benchmarks output
+*.json
+*.csv

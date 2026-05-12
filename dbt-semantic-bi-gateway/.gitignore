@@ -1,0 +1,29 @@
+# dbt artifacts
+target/
+dbt_packages/
+logs/
+*.duckdb
+*.duckdb.wal
+
+# Profiles with credentials — never commit
+profiles.yml
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+.env
+*.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# CI state artifacts (download from object storage at runtime)
+prod_artifacts/

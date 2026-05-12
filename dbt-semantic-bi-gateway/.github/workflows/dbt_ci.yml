@@ -1,0 +1,156 @@
+name: dbt CI
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "models/**"
+      - "macros/**"
+      - "tests/**"
+      - "seeds/**"
+      - "semantic_models/**"
+      - "metrics/**"
+      - "exposures/**"
+      - "dbt_project.yml"
+      - "packages.yml"
+
+  push:
+    branches: [main]
+
+env:
+  DBT_PROFILES_DIR: .
+  DBT_TARGET: dev
+
+jobs:
+  # ── Lint & parse ────────────────────────────────────────────────────────────
+  lint:
+    name: Lint (SQLFluff + dbt parse)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install dbt-duckdb sqlfluff sqlfluff-templater-dbt
+
+      - name: dbt deps
+        run: dbt deps
+
+      - name: dbt parse (validate project)
+        run: dbt parse
+
+      - name: SQLFluff lint
+        run: |
+          sqlfluff lint models/ \
+            --dialect duckdb \
+            --templater dbt \
+            --exclude-rules L031,L034 \
+            --format github-annotation-native
+        continue-on-error: true   # warnings only until ruleset is agreed
+
+  # ── Slim CI run ─────────────────────────────────────────────────────────────
+  slim-ci:
+    name: Slim CI (changed models + tests)
+    runs-on: ubuntu-latest
+    needs: lint
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dbt
+        run: pip install dbt-duckdb
+
+      - name: dbt deps
+        run: dbt deps
+
+      - name: Fetch state from main (for slim CI)
+        run: |
+          git fetch origin main
+          dbt compile --target dev 2>/dev/null || true
+          mkdir -p ./prod_artifacts
+          # In a real setup: download artifacts from S3/GCS using:
+          # aws s3 cp s3://your-bucket/dbt-artifacts/ ./prod_artifacts/ --recursive
+          echo "State artifacts would be fetched from object storage here"
+
+      - name: dbt build (changed models only)
+        run: |
+          dbt build \
+            --select "state:modified+" \
+            --defer \
+            --state ./prod_artifacts \
+            --target dev
+        env:
+          DBT_TARGET: dev
+
+      - name: dbt test (changed models)
+        run: |
+          dbt test \
+            --select "state:modified+" \
+            --defer \
+            --state ./prod_artifacts
+
+  # ── Full production run ──────────────────────────────────────────────────────
+  production:
+    name: Production Run
+    runs-on: ubuntu-latest
+    needs: lint
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dbt
+        run: pip install dbt-duckdb
+
+      - name: dbt deps
+        run: dbt deps
+
+      - name: dbt seed
+        run: dbt seed --target prod
+        env:
+          DBT_TARGET: prod
+          DBT_PROD_HOST: ${{ secrets.DBT_PROD_HOST }}
+          DBT_PROD_USER: ${{ secrets.DBT_PROD_USER }}
+          DBT_PROD_PASSWORD: ${{ secrets.DBT_PROD_PASSWORD }}
+
+      - name: dbt build (full)
+        run: dbt build --target prod --full-refresh --exclude tag:snapshot
+        env:
+          DBT_TARGET: prod
+          DBT_PROD_HOST: ${{ secrets.DBT_PROD_HOST }}
+          DBT_PROD_USER: ${{ secrets.DBT_PROD_USER }}
+          DBT_PROD_PASSWORD: ${{ secrets.DBT_PROD_PASSWORD }}
+
+      - name: dbt snapshot
+        run: dbt snapshot --target prod
+        env:
+          DBT_TARGET: prod
+          DBT_PROD_HOST: ${{ secrets.DBT_PROD_HOST }}
+          DBT_PROD_USER: ${{ secrets.DBT_PROD_USER }}
+          DBT_PROD_PASSWORD: ${{ secrets.DBT_PROD_PASSWORD }}
+
+      - name: Upload artifacts to object storage
+        run: |
+          echo "Upload ./target/manifest.json and ./target/run_results.json"
+          echo "to s3://your-bucket/dbt-artifacts/ here"
+        # aws s3 cp ./target/ s3://your-bucket/dbt-artifacts/ --recursive

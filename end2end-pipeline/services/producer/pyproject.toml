@@ -1,0 +1,46 @@
+[project]
+name = "producer"
+version = "0.1.0"
+description = "Synthetic user-interaction event producer for the end2end pipeline."
+requires-python = ">=3.12"
+dependencies = [
+  "confluent-kafka[avro,schemaregistry]==2.5.3",
+  "fastavro==1.9.5",
+  "structlog==24.4.0",
+  "opentelemetry-api==1.27.0",
+  "opentelemetry-sdk==1.27.0",
+  "opentelemetry-exporter-otlp-proto-grpc==1.27.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest==8.3.3",
+  "pytest-asyncio==0.24.0",
+  "ruff==0.6.9",
+  "mypy==1.11.2",
+]
+
+[project.scripts]
+producer = "producer.__main__:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.mypy]
+strict = true
+python_version = "3.12"
+
+[[tool.mypy.overrides]]
+module = ["confluent_kafka.*"]
+ignore_missing_imports = true

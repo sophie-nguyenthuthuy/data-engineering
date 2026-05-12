@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Data Catalog — Dashboard</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+<div class="layout">
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="logo">Data<span>Catalog</span></div>
+    <a href="/" class="nav-item active">⬡ &nbsp;Dashboard</a>
+    <a href="/assets" class="nav-item">🗄 &nbsp;Assets</a>
+    <a href="/lineage" class="nav-item">🔗 &nbsp;Lineage</a>
+    <a href="/pii" class="nav-item">🔒 &nbsp;PII Report</a>
+    <a href="/docs" class="nav-item" target="_blank">📖 &nbsp;API Docs</a>
+  </nav>
+
+  <!-- Main -->
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <h1>Dashboard</h1>
+        <div class="sub">Overview of your data catalog</div>
+      </div>
+      <button class="btn btn-primary" onclick="openAddSource()">+ Add Source</button>
+    </div>
+
+    <!-- Stats -->
+    <div class="stat-grid" id="stat-grid">
+      <div class="stat-card"><div class="val" id="s-sources">–</div><div class="lbl">Data Sources</div></div>
+      <div class="stat-card"><div class="val" id="s-schemas">–</div><div class="lbl">Schemas</div></div>
+      <div class="stat-card"><div class="val" id="s-tables">–</div><div class="lbl">Tables</div></div>
+      <div class="stat-card"><div class="val" id="s-columns">–</div><div class="lbl">Columns</div></div>
+      <div class="stat-card"><div class="val" id="s-pii" style="color:var(--danger)">–</div><div class="lbl">PII Columns</div></div>
+      <div class="stat-card"><div class="val" id="s-jobs">–</div><div class="lbl">Lineage Jobs</div></div>
+      <div class="stat-card"><div class="val" id="s-edges">–</div><div class="lbl">Lineage Edges</div></div>
+    </div>
+
+    <!-- Sources table -->
+    <div class="card">
+      <div class="flex-row" style="margin-bottom:16px">
+        <h2 style="font-size:16px;font-weight:700">Registered Sources</h2>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th><th>Engine</th><th>Description</th>
+              <th>Last Scanned</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="sources-tbody">
+            <tr><td colspan="5" class="loader">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Add Source Modal -->
+<div class="modal-overlay" id="modal-source">
+  <div class="modal">
+    <h2>Add Data Source</h2>
+    <div class="form-group">
+      <label>Name</label>
+      <input class="form-control" id="src-name" placeholder="e.g. production_db" />
+    </div>
+    <div class="form-group">
+      <label>Engine Type</label>
+      <select class="form-control" id="src-engine">
+        <option value="sqlite">SQLite</option>
+        <option value="postgresql">PostgreSQL</option>
+        <option value="mysql">MySQL</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Connection String</label>
+      <input class="form-control" id="src-conn" placeholder="sqlite:///path/to/file.db" />
+    </div>
+    <div class="form-group">
+      <label>Description (optional)</label>
+      <textarea class="form-control" id="src-desc" placeholder="What does this source contain?"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-source')">Cancel</button>
+      <button class="btn btn-primary" onclick="addSource()">Add Source</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+<script src="/static/app.js"></script>
+<script>
+  loadStats();
+  loadSources();
+
+  function openAddSource() { document.getElementById('modal-source').classList.add('open'); }
+
+  async function addSource() {
+    const body = {
+      name: document.getElementById('src-name').value.trim(),
+      engine_type: document.getElementById('src-engine').value,
+      connection_string: document.getElementById('src-conn').value.trim(),
+      description: document.getElementById('src-desc').value.trim() || null,
+    };
+    if (!body.name || !body.connection_string) return toast('Name and connection string required', 'error');
+    const r = await api('POST', '/api/sources', body);
+    if (r.ok) {
+      toast('Source added', 'success');
+      closeModal('modal-source');
+      loadSources(); loadStats();
+    } else {
+      const e = await r.json();
+      toast(e.detail || 'Error', 'error');
+    }
+  }
+
+  async function scanSource(id) {
+    toast('Scanning…', 'info');
+    const r = await api('POST', `/api/sources/${id}/scan`);
+    if (r.ok) {
+      const d = await r.json();
+      toast(`Scanned: ${d.tables} tables, ${d.columns} columns, ${d.pii_columns} PII`, 'success');
+      loadStats(); loadSources();
+    } else {
+      const e = await r.json();
+      toast(Array.isArray(e.detail) ? e.detail.join('; ') : e.detail, 'error');
+    }
+  }
+
+  async function deleteSource(id) {
+    if (!confirm('Delete this source and all its metadata?')) return;
+    const r = await api('DELETE', `/api/sources/${id}`);
+    if (r.ok) { toast('Deleted', 'success'); loadSources(); loadStats(); }
+  }
+
+  async function loadSources() {
+    const data = await apiFetch('/api/sources');
+    const tbody = document.getElementById('sources-tbody');
+    if (!data.length) { tbody.innerHTML = '<tr><td colspan="5" class="empty">No sources yet. Add one above.</td></tr>'; return; }
+    tbody.innerHTML = data.map(s => `
+      <tr>
+        <td><a href="/assets?source=${s.id}"><strong>${s.name}</strong></a></td>
+        <td><span class="tag tag-info">${s.engine_type}</span></td>
+        <td style="color:var(--text-muted)">${s.description || '–'}</td>
+        <td style="color:var(--text-muted)">${s.last_scanned_at ? new Date(s.last_scanned_at).toLocaleString() : 'Never'}</td>
+        <td>
+          <button class="btn btn-outline btn-sm" onclick="scanSource(${s.id})">⟳ Scan</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteSource(${s.id})" style="margin-left:6px">✕</button>
+        </td>
+      </tr>`).join('');
+  }
+
+  async function loadStats() {
+    const d = await apiFetch('/api/stats');
+    ['sources','schemas','tables','columns','pii','jobs','edges'].forEach(k => {
+      const el = document.getElementById(`s-${k}`);
+      if (el) el.textContent = d[k === 'pii' ? 'pii_columns' : k === 'jobs' ? 'lineage_jobs' : k === 'edges' ? 'lineage_edges' : k] ?? '–';
+    });
+  }
+</script>
+</body>
+</html>

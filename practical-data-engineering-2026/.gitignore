@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Env
+.env
+.env.local
+
+# Local state
+dagster_home/storage/
+dagster_home/history/
+dagster_home/logs/
+dagster_home/schedules/
+dagster_home/catalog.db*
+data/*.duckdb
+data/*.parquet
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
+*.swp

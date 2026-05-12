@@ -1,0 +1,4 @@
+confluent-kafka==2.5.3
+requests==2.32.3
+google-cloud-storage==2.18.2
+python-dotenv==1.0.1

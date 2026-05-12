@@ -1,0 +1,18 @@
+{
+  "type": "record",
+  "name": "OrderItem",
+  "namespace": "com.cdc.pipeline",
+  "doc": "Order line-item record — v1",
+  "fields": [
+    {"name": "id",         "type": "int"},
+    {"name": "order_id",   "type": "int"},
+    {"name": "sku",        "type": "string"},
+    {"name": "quantity",   "type": "int"},
+    {"name": "unit_price", "type": "double"},
+    {"name": "created_at", "type": {"type": "long", "logicalType": "timestamp-millis"}},
+    {"name": "__op",       "type": ["null", "string"], "default": null},
+    {"name": "__lsn",      "type": ["null", "long"],   "default": null},
+    {"name": "__ts_ms",    "type": ["null", "long"],   "default": null},
+    {"name": "__deleted",  "type": ["null", "string"], "default": null}
+  ]
+}

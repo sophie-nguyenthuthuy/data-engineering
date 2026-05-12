@@ -1,0 +1,40 @@
+version: "3.9"
+
+services:
+  memgraph:
+    image: memgraph/memgraph-platform:latest
+    ports:
+      - "7687:7687"   # Bolt protocol
+      - "7444:7444"   # Monitoring
+      - "3000:3000"   # Memgraph Lab UI
+    volumes:
+      - memgraph_data:/var/lib/memgraph
+    environment:
+      MEMGRAPH_TELEMETRY_ENABLED: "false"
+    healthcheck:
+      test: ["CMD", "mg_client", "--execute", "RETURN 1;"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  risk-monitor:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      MEMGRAPH_HOST: memgraph
+      MEMGRAPH_PORT: "7687"
+      TRANSACTION_INTERVAL_MS: "200"
+      NUM_INSTITUTIONS: "20"
+      LOG_LEVEL: INFO
+    depends_on:
+      memgraph:
+        condition: service_healthy
+    volumes:
+      - ./src:/app/src
+      - ./dashboard:/app/dashboard
+    command: python -m src.main
+
+volumes:
+  memgraph_data:

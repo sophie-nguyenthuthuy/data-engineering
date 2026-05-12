@@ -1,0 +1,98 @@
+# End-to-end smoke: bring the dev stack up, register the sink connector,
+# wait for data to flow all the way through to ClickHouse, and confirm
+# the API surfaces it.
+#
+# This is the single test that catches real-world regressions that unit
+# tests miss: docker-compose wiring, connector registration, ClickHouse
+# schema drift, Kafka topic config. It's slow (~6–8 min), so it only
+# runs on push to main and on the smoke label.
+
+name: smoke
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, reopened, synchronize, labeled]
+  workflow_dispatch:
+
+concurrency:
+  group: smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: compose smoke
+    # Skip on PRs unless the `smoke` label is present — saves CI budget,
+    # and the author opts in when they've touched compose / connectors.
+    if: >
+      github.event_name != 'pull_request' ||
+      contains(github.event.pull_request.labels.*.name, 'smoke')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare env
+        run: |
+          make env
+          # Tighten producer rate: we only need a few hundred events for
+          # the smoke assertion. Lower rate = less noise in CI logs.
+          sed -i 's/^PRODUCER_EVENTS_PER_SEC=.*/PRODUCER_EVENTS_PER_SEC=25/' .env
+
+      - name: Bring up core pipeline
+        # We skip the observability + orchestration containers for this
+        # smoke — they don't affect the critical Kafka → ClickHouse path
+        # and they add ~2 GB of RAM pressure.
+        run: |
+          docker compose --project-name pipeline up -d --build \
+            kafka kafka-init schema-registry kafka-connect \
+            clickhouse producer api dashboard
+
+      - name: Register sink connector
+        run: make register
+
+      - name: Wait for /healthz to report ok
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS "http://localhost:${API_PORT:-8000}/healthz" | grep -q '"status":"ok"'; then
+              echo "api healthz: ok"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "api healthz never turned ok" >&2
+          docker compose --project-name pipeline ps
+          docker compose --project-name pipeline logs --tail=100 api clickhouse
+          exit 1
+
+      - name: Wait for non-zero row count
+        # Producer runs at 25 events/sec → ~500 rows after 20s of flow,
+        # but the Connect sink buffers in blocks so allow slack.
+        run: |
+          for i in $(seq 1 90); do
+            count=$(curl -fsS -u pipeline:change_me_in_env \
+              "http://localhost:8123/?database=events" \
+              --data-binary "SELECT count() FROM user_interactions" || echo 0)
+            count=${count:-0}
+            if [ "${count}" -gt 100 ]; then
+              echo "user_interactions rows: ${count}"
+              exit 0
+            fi
+            echo "count=${count} (attempt ${i}/90)"
+            sleep 2
+          done
+          echo "ClickHouse row count never exceeded 100" >&2
+          docker compose --project-name pipeline logs --tail=200 kafka-connect producer
+          exit 1
+
+      - name: Dump logs on failure
+        if: failure()
+        run: docker compose --project-name pipeline logs --no-color --tail=300
+
+      - name: Tear down
+        if: always()
+        run: docker compose --project-name pipeline down -v --remove-orphans

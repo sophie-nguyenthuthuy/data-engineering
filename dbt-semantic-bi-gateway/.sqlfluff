@@ -1,0 +1,31 @@
+[sqlfluff]
+templater = dbt
+dialect = duckdb
+sql_file_exts = .sql
+
+# Line length
+max_line_length = 100
+
+# Rules to exclude
+exclude_rules = L031, L034
+
+[sqlfluff:templater:dbt]
+project_dir = .
+profiles_dir = .
+target = dev
+
+[sqlfluff:rules:L010]
+# Keyword capitalisation — uppercase
+capitalisation_policy = upper
+
+[sqlfluff:rules:L014]
+# Unquoted identifier capitalisation — lowercase
+unquoted_identifiers_policy = lower
+
+[sqlfluff:rules:L016]
+# Line length — allow slightly longer lines in CTEs
+max_line_length = 120
+
+[sqlfluff:rules:L036]
+# SELECT clause modifiers — allow * at top
+wildcard_policy = consistent

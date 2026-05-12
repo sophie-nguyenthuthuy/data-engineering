@@ -1,0 +1,28 @@
+name: churned_users_slack
+description: "Alert #data-alerts every weekday morning with users who churned in the last 24h"
+enabled: true
+
+source:
+  type: postgres
+  query: |
+    SELECT
+      u.email,
+      u.name,
+      s.plan,
+      s.mrr,
+      s.churned_at::date AS churned_date
+    FROM subscriptions s
+    JOIN users u ON u.id = s.user_id
+    WHERE s.churned_at >= NOW() - INTERVAL '24 hours'
+    ORDER BY s.mrr DESC;
+
+destination:
+  type: slack
+  params:
+    channel: "#data-alerts"
+    batch_summary: true
+    message_template: "{name} ({email}) — {plan} plan, ${mrr}/mo — churned {churned_date}"
+
+schedule:
+  type: cron
+  cron: "0 9 * * 1-5"   # 09:00 UTC Mon–Fri

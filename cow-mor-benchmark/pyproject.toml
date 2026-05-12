@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cow-mor-benchmark"
+version = "0.1.0"
+description = "Copy-on-Write vs Merge-on-Read benchmark engine with automatic strategy recommendation"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "pyarrow>=14.0",
+    "duckdb>=0.9",
+    "pandas>=2.1",
+    "numpy>=1.26",
+    "rich>=13.0",
+    "click>=8.1",
+    "matplotlib>=3.8",
+    "scikit-learn>=1.3",
+    "psutil>=5.9",
+    "humanize>=4.9",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4",
+    "pytest-cov>=4.1",
+    "ruff>=0.1",
+]
+
+[project.scripts]
+cow-mor-bench = "cow_mor_bench.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"

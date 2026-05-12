@@ -1,0 +1,117 @@
+# Container hygiene: Dockerfile lint + filesystem and image vulnerability
+# scans. Image scans are on a wider cadence than ci.yml because they pull
+# base-image updates; the filesystem scan catches pinned deps.
+#
+# Results go to the Security tab via SARIF. The workflow is non-blocking
+# (continue-on-error) — treat findings as triage input, not a merge gate.
+# Tighten severity thresholds once a baseline is clean.
+
+name: containers
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Daily 03:17 UTC — off the hour to avoid scheduler thundering herd.
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: containers-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  hadolint:
+    name: hadolint (${{ matrix.dockerfile }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        dockerfile:
+          - services/producer/Dockerfile
+          - services/api/Dockerfile
+          - services/orchestrator/Dockerfile
+          - infra/kafka-connect/Dockerfile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: ${{ matrix.dockerfile }}
+          format: sarif
+          output-file: hadolint-${{ strategy.job-index }}.sarif
+          no-fail: true
+      - name: Upload SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: hadolint-${{ strategy.job-index }}.sarif
+          category: hadolint-${{ matrix.dockerfile }}
+
+  trivy-fs:
+    name: trivy filesystem
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trivy filesystem scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: sarif
+          output: trivy-fs.sarif
+          exit-code: "0"  # report-only for now
+      - name: Upload SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-fs.sarif
+          category: trivy-fs
+
+  trivy-image:
+    name: trivy image (${{ matrix.service }})
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: producer
+            context: services/producer
+          - service: api
+            context: services/api
+          - service: orchestrator
+            context: services/orchestrator
+          - service: kafka-connect
+            context: infra/kafka-connect
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          load: true
+          tags: pipeline/${{ matrix.service }}:scan
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+      - name: Trivy image scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: pipeline/${{ matrix.service }}:scan
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: sarif
+          output: trivy-image-${{ matrix.service }}.sarif
+          exit-code: "0"
+      - name: Upload SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-image-${{ matrix.service }}.sarif
+          category: trivy-image-${{ matrix.service }}

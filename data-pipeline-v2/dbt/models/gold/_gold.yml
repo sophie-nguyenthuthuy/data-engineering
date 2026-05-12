@@ -1,0 +1,25 @@
+version: 2
+
+models:
+  - name: gold_daily_revenue
+    description: "Daily revenue, order count, and unique customers — primary Superset source"
+    columns:
+      - name: order_date
+        tests: [not_null]
+      - name: revenue_usd
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+
+  - name: gold_product_performance
+    description: "Revenue + units sold per product, last 30d"
+    columns:
+      - name: product_id
+        tests: [not_null, unique]
+
+  - name: gold_customer_ltv
+    description: "Lifetime spend and order count per customer"
+    columns:
+      - name: customer_id
+        tests: [not_null, unique]

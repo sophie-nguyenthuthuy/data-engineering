@@ -1,0 +1,4 @@
+bin/
+/tmp/
+*.sst
+wal.log

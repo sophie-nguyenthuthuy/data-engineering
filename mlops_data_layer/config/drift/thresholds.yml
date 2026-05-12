@@ -1,0 +1,22 @@
+# Drift detection thresholds per feature (override global defaults)
+# If a feature is not listed here, global settings.py defaults are used.
+
+feature_overrides:
+  txn_amount:
+    ks_pvalue_threshold: 0.01     # stricter — financial feature
+    psi_threshold: 0.15
+    js_threshold: 0.08
+
+  risk_score:
+    ks_pvalue_threshold: 0.01
+    psi_threshold: 0.10
+    js_threshold: 0.05
+
+  customer_segment:
+    psi_threshold: 0.15           # categorical PSI
+
+# Global alert escalation rules
+escalation:
+  warning_threshold: 0.1          # drift_score above this → WARNING alert
+  critical_threshold: 0.3         # drift_score above this → CRITICAL alert + page on-call
+  min_window_size: 100            # skip evaluation if serving window smaller than this

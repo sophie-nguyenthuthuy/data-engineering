@@ -1,0 +1,79 @@
+version: 2
+
+models:
+  - name: dim_customers
+    description: >
+      Slowly-changing customer dimension (Type 1 — latest state).
+      Includes RFM segments and LTV tier.
+    columns:
+      - name: customer_id
+        description: Surrogate primary key.
+        tests: [unique, not_null]
+      - name: email
+        tests: [unique, not_null]
+      - name: country_code
+      - name: acquisition_channel
+      - name: customer_segment
+        tests:
+          - accepted_values:
+              values: [one_time, repeat, loyal]
+      - name: ltv_tier
+        tests:
+          - accepted_values:
+              values: [bronze, silver, gold, platinum]
+
+  - name: dim_products
+    description: Product dimension with category hierarchy and margin data.
+    columns:
+      - name: product_id
+        tests: [unique, not_null]
+      - name: sku
+        tests: [unique, not_null]
+      - name: is_active
+
+  - name: dim_dates
+    description: >
+      Calendar date spine from 2018-01-01 to today + 2 years.
+      Includes fiscal calendar, US holidays, and ISO week numbers.
+    columns:
+      - name: date_day
+        tests: [unique, not_null]
+
+  - name: fct_orders
+    description: >
+      Grain: one row per order.
+      Central fact table for revenue, order volume, and discount metrics.
+    columns:
+      - name: order_id
+        tests: [unique, not_null]
+      - name: customer_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_customers')
+              field: customer_id
+      - name: order_date
+        tests:
+          - relationships:
+              to: ref('dim_dates')
+              field: date_day
+
+  - name: fct_order_items
+    description: >
+      Grain: one row per order line item.
+      Enables product-level revenue and margin analysis.
+    columns:
+      - name: order_item_id
+        tests: [unique, not_null]
+      - name: order_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('fct_orders')
+              field: order_id
+      - name: product_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_products')
+              field: product_id

@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Inflation Crawler</title>
+<link rel="stylesheet" href="/static/style.css" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<header>
+  <h1>Inflation Crawler</h1>
+  <p>Online prices vs. official CPI, measured from Common Crawl.</p>
+</header>
+
+<section class="controls">
+  <label>
+    Category
+    <select id="category"><option value="">(all)</option></select>
+  </label>
+  <label>
+    CPI series
+    <input id="series" value="CUUR0000SA0" />
+  </label>
+  <button id="refresh">Refresh</button>
+  <span id="rate-badge"></span>
+</section>
+
+<section class="chart-wrap">
+  <canvas id="chart"></canvas>
+</section>
+
+<section>
+  <h2>Recent extractions</h2>
+  <table id="products">
+    <thead><tr><th>Title</th><th>Brand</th><th>Cat</th><th>Price</th><th>Source</th><th>When</th></tr></thead>
+    <tbody></tbody>
+  </table>
+</section>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

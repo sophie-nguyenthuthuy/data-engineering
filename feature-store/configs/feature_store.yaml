@@ -1,0 +1,83 @@
+kafka:
+  bootstrap_servers: "localhost:9092"
+  topics:
+    feature_events: "feature-events"
+    feature_updates: "feature-updates"
+  consumer:
+    group_id: "feature-store-consumer"
+    auto_offset_reset: "latest"
+    enable_auto_commit: false
+    max_poll_records: 500
+    fetch_min_bytes: 1
+    fetch_max_wait_ms: 10       # low latency: don't wait for batches
+  producer:
+    acks: 1                     # balance durability vs latency
+    linger_ms: 0                # no batching delay
+    compression_type: "snappy"
+
+redis:
+  url: "redis://localhost:6379"
+  db: 0
+  socket_connect_timeout: 0.5
+  socket_timeout: 0.01          # 10ms hard cap
+  max_connections: 100
+  decode_responses: false       # raw bytes for speed
+  ttl_seconds: 86400            # 24h default TTL for online features
+
+offline:
+  base_path: "./data/offline"
+  partition_cols: ["feature_group", "date"]
+  row_group_size: 131072
+  compression: "snappy"
+  write_batch_size: 10000       # rows before flush to parquet
+  flush_interval_seconds: 60
+
+serving:
+  host: "0.0.0.0"
+  port: 8000
+  workers: 4
+  latency_budget_ms: 10
+  cache_ttl_seconds: 1          # L1 in-process cache TTL
+
+feature_groups:
+  user_features:
+    ttl_seconds: 3600
+    features:
+      - name: user_age_days
+        dtype: float32
+        description: "Account age in days"
+      - name: total_purchases
+        dtype: int64
+        description: "Lifetime purchase count"
+      - name: avg_session_duration_sec
+        dtype: float32
+        description: "Rolling 7d avg session duration"
+      - name: churn_risk_score
+        dtype: float32
+        description: "Churn risk [0,1]"
+
+  item_features:
+    ttl_seconds: 7200
+    features:
+      - name: item_popularity_score
+        dtype: float32
+        description: "Normalized popularity score"
+      - name: avg_rating
+        dtype: float32
+        description: "Average user rating"
+      - name: days_since_last_purchase
+        dtype: int32
+        description: "Staleness indicator"
+
+  realtime_features:
+    ttl_seconds: 60             # short TTL — highly volatile
+    features:
+      - name: session_page_views
+        dtype: int32
+        description: "Page views in current session"
+      - name: cart_value_usd
+        dtype: float32
+        description: "Current cart value"
+      - name: click_through_rate_1h
+        dtype: float32
+        description: "CTR in past hour"

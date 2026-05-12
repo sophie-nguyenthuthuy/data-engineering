@@ -1,0 +1,106 @@
+name: CI — Contract Enforcement
+
+on:
+  push:
+    branches: ["main", "develop"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  # ------------------------------------------------------------------ #
+  # 1. Lint & test the platform library
+  # ------------------------------------------------------------------ #
+  test:
+    name: Test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install -e ".[dev]"
+
+      - name: Run tests with coverage
+        run: |
+          pytest --cov=dce --cov-report=xml --cov-report=term-missing
+
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v4
+        if: matrix.python-version == '3.12'
+        with:
+          files: coverage.xml
+          fail_ci_if_error: false
+
+  # ------------------------------------------------------------------ #
+  # 2. Validate all contracts are parseable
+  # ------------------------------------------------------------------ #
+  validate-contracts:
+    name: Validate Contract YAML
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dce
+        run: pip install -e ".[dev]"
+
+      - name: List all contracts
+        run: dce list contracts/
+
+      - name: Detect breaking changes
+        id: breaking
+        run: |
+          dce check-all contracts/ && echo "no_breaking=true" >> "$GITHUB_OUTPUT" || echo "no_breaking=false" >> "$GITHUB_OUTPUT"
+        continue-on-error: true
+
+      - name: Comment breaking changes on PR
+        if: github.event_name == 'pull_request' && steps.breaking.outputs.no_breaking == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '⚠️ **Breaking contract changes detected.** Run `dce check-all contracts/` locally for details.'
+            })
+
+      - name: Fail on breaking changes in main
+        if: github.ref == 'refs/heads/main' && steps.breaking.outputs.no_breaking == 'false'
+        run: |
+          echo "Breaking contract changes are not allowed to merge to main without explicit approval."
+          exit 1
+
+  # ------------------------------------------------------------------ #
+  # 3. Contract schema lint (YAML structure check)
+  # ------------------------------------------------------------------ #
+  lint-contracts:
+    name: Lint Contract YAML
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install yamllint
+        run: pip install yamllint
+
+      - name: Lint contract YAML files
+        run: |
+          yamllint -d "{extends: default, rules: {line-length: {max: 120}}}" contracts/

@@ -1,0 +1,36 @@
+name: Feature request
+description: Suggest a new capability or improvement.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: Focus on the use case, not a pre-decided solution.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: What would the feature look like? CLI surface, config, etc.
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What else could solve this? Why is this the right shape?
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Which area does this touch?
+      options:
+        - label: Sources (new ingestion source or a change to an existing one)
+        - label: AI layer (prompts, coercion, model selection)
+        - label: Storage / schema
+        - label: Orchestration (Prefect flow, retries, scheduling)
+        - label: CLI / UX
+        - label: Evals
+        - label: Infrastructure (CI, Docker, packaging)

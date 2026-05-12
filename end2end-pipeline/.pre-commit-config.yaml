@@ -1,0 +1,41 @@
+# Local pre-commit hooks. Install with:  pre-commit install
+#
+# Scoped to cheap, fast checks: format, whitespace, obvious credential
+# leaks. Heavy checks (mypy, pytest, image scans) are CI-only — running
+# them on every commit would make the workflow unpleasant.
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=500]
+      - id: mixed-line-ending
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  # Shell scripts (bootstrap-secrets.sh, register-connector*.sh, infra/*).
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.10.0.1
+    hooks:
+      - id: shellcheck
+        args: [-S, warning]
+
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args: [--baseline, .secrets.baseline]
+        # secrets/ holds locally-generated dev credentials that bootstrap-
+        # secrets.sh creates. They're gitignored anyway — belt + braces.
+        exclude: ^(secrets/|.*\.lock$|.*\.sarif$)

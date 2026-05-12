@@ -1,0 +1,22 @@
+version: 2
+
+sources:
+  - name: gh_raw
+    database: "{{ env_var('GCP_PROJECT_ID') }}"
+    schema:  "{{ env_var('BQ_DATASET_RAW', 'gh_raw') }}"
+    tables:
+      - name: events
+        description: "Raw GH Archive events landed by dlt, partitioned by event_hour."
+        loaded_at_field: event_hour
+        freshness:
+          warn_after:  { count: 6,  period: hour }
+          error_after: { count: 24, period: hour }
+        columns:
+          - name: id
+            description: "GitHub event id (unique across the archive)."
+            tests: [not_null, unique]
+          - name: type
+            description: "Event type (PushEvent, PullRequestEvent, WatchEvent, etc)."
+            tests: [not_null]
+          - name: event_hour
+            tests: [not_null]

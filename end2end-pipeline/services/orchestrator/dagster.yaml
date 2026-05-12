@@ -1,0 +1,36 @@
+# Dev-stack Dagster instance config.
+# SQLite storage is fine under `dagster dev` (single supervisor process).
+# For a multi-container prod deploy, swap these three blocks for
+# dagster-postgres equivalents.
+local_artifact_storage:
+  module: dagster._core.storage.root
+  class: LocalArtifactStorage
+  config:
+    base_dir: /opt/dagster/local
+
+run_storage:
+  module: dagster._core.storage.runs
+  class: SqliteRunStorage
+  config:
+    base_dir: /opt/dagster/runs
+
+event_log_storage:
+  module: dagster._core.storage.event_log
+  class: SqliteEventLogStorage
+  config:
+    base_dir: /opt/dagster/events
+
+schedule_storage:
+  module: dagster._core.storage.schedules
+  class: SqliteScheduleStorage
+  config:
+    base_dir: /opt/dagster/schedules
+
+compute_logs:
+  module: dagster._core.storage.local_compute_log_manager
+  class: LocalComputeLogManager
+  config:
+    base_dir: /opt/dagster/logs
+
+telemetry:
+  enabled: false

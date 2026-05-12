@@ -1,0 +1,70 @@
+name: "dbt_semantic_bi_gateway"
+version: "1.0.0"
+config-version: 2
+
+profile: "dbt_semantic_bi_gateway"
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+# Global model configs
+models:
+  dbt_semantic_bi_gateway:
+    +materialized: view
+
+    staging:
+      +materialized: view
+      +schema: staging
+      +tags: ["staging"]
+
+    intermediate:
+      +materialized: ephemeral
+      +tags: ["intermediate"]
+
+    marts:
+      +materialized: table
+      +tags: ["mart"]
+
+      core:
+        +schema: core
+        +tags: ["core"]
+
+      marketing:
+        +schema: marketing
+        +tags: ["marketing"]
+
+      finance:
+        +schema: finance
+        +tags: ["finance"]
+
+# Seed configs
+seeds:
+  dbt_semantic_bi_gateway:
+    +schema: seeds
+
+# Snapshot configs
+snapshots:
+  dbt_semantic_bi_gateway:
+    +target_schema: snapshots
+    +strategy: timestamp
+    +updated_at: updated_at
+
+# Variables
+vars:
+  # Date range for incremental loads
+  start_date: "2020-01-01"
+  # BI tool connection identifiers
+  tableau_project: "Revenue Analytics"
+  looker_model: "ecommerce"
+  # Currency
+  default_currency: "USD"
+  # Fiscal year start month (1 = January)
+  fiscal_year_start_month: 1

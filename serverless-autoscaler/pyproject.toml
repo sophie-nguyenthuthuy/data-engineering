@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "serverless-autoscaler"
+version = "0.1.0"
+description = "Predictive warming control plane for Spark/Flink jobs via Kubernetes HPA"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+    "statsmodels>=0.14.0",
+    "numpy>=1.26.0",
+    "pandas>=2.1.0",
+    "sqlalchemy>=2.0.0",
+    "kubernetes>=28.1.0",
+    "prometheus-client>=0.19.0",
+    "croniter>=2.0.0",
+    "pyyaml>=6.0.1",
+    "scipy>=1.11.0",
+]
+
+[project.scripts]
+autoscaler = "autoscaler.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = false
+ignore_missing_imports = true

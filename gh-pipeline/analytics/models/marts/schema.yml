@@ -1,0 +1,27 @@
+version: 2
+
+models:
+  - name: fct_daily_activity
+    description: "Daily per-repo activity rollup; partitioned by activity_date, clustered by repo_id."
+    columns:
+      - name: activity_date
+        tests: [not_null]
+      - name: repo_id
+        tests: [not_null]
+      - name: total_events
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+
+  - name: dim_repos
+    description: "Per-repo dimension: first/last seen, contributors, stars, forks."
+    columns:
+      - name: repo_id
+        tests: [not_null, unique]
+
+  - name: dim_users
+    description: "Per-user dimension: activity summary over the window."
+    columns:
+      - name: actor_id
+        tests: [not_null, unique]

@@ -1,0 +1,82 @@
+:root {
+  --bg: #0f1115;
+  --panel: #161a22;
+  --panel-2: #1c2230;
+  --text: #e6e9ef;
+  --muted: #8a93a6;
+  --accent: #7cc4ff;
+  --ok: #5ee1a1;
+  --warn: #ffc46b;
+  --err: #ff6b6b;
+  --border: #2a3040;
+  --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  line-height: 1.4;
+  min-height: 100vh;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.2rem 1.8rem;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, #161a22, #111418);
+}
+header h1 { margin: 0; font-size: 1.2rem; letter-spacing: 0.02em; }
+
+.health {
+  font-size: 0.8rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+}
+.health.ok { color: var(--ok); border-color: rgba(94, 225, 161, 0.3); }
+.health.err { color: var(--err); border-color: rgba(255, 107, 107, 0.3); }
+.health.pending { color: var(--muted); }
+
+section { padding: 1.2rem 1.8rem; }
+h2 { font-size: 0.95rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin: 0 0 0.8rem; }
+
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.8rem; margin-bottom: 1rem; }
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.9rem 1rem;
+}
+.card .k { color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; }
+.card .v { font-size: 1.6rem; font-weight: 600; margin-top: 0.3rem; font-variant-numeric: tabular-nums; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  font-variant-numeric: tabular-nums;
+}
+th, td { padding: 0.55rem 0.8rem; text-align: left; border-bottom: 1px solid var(--border); font-size: 0.9rem; }
+th { background: var(--panel-2); color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em; font-size: 0.72rem; }
+tr:last-child td { border-bottom: none; }
+
+.status-error { color: var(--err); }
+.status-success { color: var(--ok); }
+.err-rate-high { color: var(--err); }
+.err-rate-mid { color: var(--warn); }
+.err-rate-low { color: var(--ok); }
+
+@media (max-width: 640px) {
+  header, section { padding: 1rem; }
+  .card .v { font-size: 1.3rem; }
+  th, td { padding: 0.45rem 0.55rem; font-size: 0.82rem; }
+}

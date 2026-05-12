@@ -1,0 +1,72 @@
+resources:
+  pipelines:
+    sales_medallion:
+      name: sales-medallion-${bundle.target}
+      catalog: ${var.catalog}
+      target: gold
+      serverless: true
+      photon: true
+      channel: CURRENT
+      edition: ADVANCED
+      development: ${bundle.target == "dev"}
+      continuous: false
+
+      libraries:
+        - file:
+            path: ../src/bronze/auto_loader.py
+        - file:
+            path: ../src/silver/cleanse.py
+        - file:
+            path: ../src/gold/dim_customer.py
+        - file:
+            path: ../src/gold/dim_product.py
+        - file:
+            path: ../src/gold/dim_date.py
+        - file:
+            path: ../src/gold/fct_sales.py
+
+      configuration:
+        landing_volume: ${var.landing_volume}
+        catalog: ${var.catalog}
+        pipelines.enableTrackHistory: "true"
+
+      notifications:
+        - email_recipients:
+            - ${var.notification_email}
+          alerts:
+            - on-update-failure
+            - on-flow-failure
+
+  jobs:
+    sales_medallion_orchestrator:
+      name: sales-medallion-orchestrator-${bundle.target}
+      schedule:
+        quartz_cron_expression: 0 0 2 * * ?
+        timezone_id: UTC
+        pause_status: ${bundle.target == "prod" ? "UNPAUSED" : "PAUSED"}
+
+      email_notifications:
+        on_failure:
+          - ${var.notification_email}
+
+      tasks:
+        - task_key: run_pipeline
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.sales_medallion.id}
+            full_refresh: false
+
+        - task_key: optimize_gold
+          depends_on:
+            - task_key: run_pipeline
+          sql_task:
+            warehouse_id: "{{job.parameters.warehouse_id}}"
+            file:
+              path: ../src/common/optimize_gold.sql
+
+        - task_key: dq_summary
+          depends_on:
+            - task_key: run_pipeline
+          notebook_task:
+            notebook_path: ../src/common/dq_summary.py
+            base_parameters:
+              catalog: ${var.catalog}

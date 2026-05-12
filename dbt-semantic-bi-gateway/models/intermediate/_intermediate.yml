@@ -1,0 +1,26 @@
+version: 2
+
+models:
+  - name: int_orders_enriched
+    description: >
+      Orders joined with customer and campaign attribution data.
+      Materialised as ephemeral — consumed by downstream marts only.
+    columns:
+      - name: order_id
+        tests: [unique, not_null]
+      - name: customer_id
+        tests: [not_null]
+
+  - name: int_order_items_enriched
+    description: Order items joined with product details and order metadata.
+    columns:
+      - name: order_item_id
+        tests: [unique, not_null]
+
+  - name: int_customer_order_summary
+    description: >
+      Per-customer aggregates: order counts, revenue, first/last order dates.
+      Used to compute LTV metrics in the marketing mart.
+    columns:
+      - name: customer_id
+        tests: [unique, not_null]

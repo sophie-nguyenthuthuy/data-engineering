@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Data Catalog — Lineage</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <!-- Cytoscape for graph rendering -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
+  <!-- dagre layout plugin -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dagre/0.8.5/dagre.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/cytoscape-dagre@2.5.0/cytoscape-dagre.min.js"></script>
+  <style>
+    #cy { width: 100%; height: 560px; background: #0a0c14; border: 1px solid var(--border); border-radius: var(--radius); }
+    .cy-tooltip {
+      position: fixed; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 14px; font-size: 12px; pointer-events: none;
+      z-index: 999; max-width: 280px; display: none;
+    }
+    .job-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 14px; border-bottom: 1px solid var(--border); cursor: pointer;
+    }
+    .job-row:hover { background: var(--surface2); }
+    .job-row:last-child { border-bottom: none; }
+  </style>
+</head>
+<body>
+<div class="layout">
+  <nav class="sidebar">
+    <div class="logo">Data<span>Catalog</span></div>
+    <a href="/" class="nav-item">⬡ &nbsp;Dashboard</a>
+    <a href="/assets" class="nav-item">🗄 &nbsp;Assets</a>
+    <a href="/lineage" class="nav-item active">🔗 &nbsp;Lineage</a>
+    <a href="/pii" class="nav-item">🔒 &nbsp;PII Report</a>
+    <a href="/docs" class="nav-item" target="_blank">📖 &nbsp;API Docs</a>
+  </nav>
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <h1>Lineage Explorer</h1>
+        <div class="sub">End-to-end column-level data lineage</div>
+      </div>
+      <button class="btn btn-primary" onclick="openJobModal()">+ Register Job</button>
+    </div>
+
+    <div class="grid-2">
+      <!-- Left: lineage graph -->
+      <div style="grid-column: 1 / -1">
+        <div class="card">
+          <div class="lineage-toolbar">
+            <select class="form-control" id="view-mode" onchange="changeViewMode()" style="width:160px">
+              <option value="table">Table lineage</option>
+              <option value="column">Column lineage</option>
+            </select>
+
+            <select class="form-control" id="table-select" style="width:200px" onchange="onTableSelect()">
+              <option value="">— Select a table —</option>
+            </select>
+            <select class="form-control" id="col-select" style="width:200px;display:none" onchange="loadColumnLineage()">
+              <option value="">— Select a column —</option>
+            </select>
+
+            <button class="btn btn-outline btn-sm" onclick="fitGraph()">⊡ Fit</button>
+            <button class="btn btn-outline btn-sm" onclick="cy && cy.zoom(cy.zoom() * 1.25)">＋</button>
+            <button class="btn btn-outline btn-sm" onclick="cy && cy.zoom(cy.zoom() * 0.8)">－</button>
+            <span id="edge-count" style="margin-left:auto;color:var(--text-muted);font-size:12px"></span>
+          </div>
+          <div id="cy-empty" class="empty" style="padding:80px">Select a table or column to visualize lineage</div>
+          <div id="cy" style="display:none"></div>
+        </div>
+      </div>
+
+      <!-- Jobs list -->
+      <div>
+        <div class="card">
+          <div style="font-size:13px;font-weight:700;color:var(--text-muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px">Lineage Jobs</div>
+          <div id="jobs-list"><div class="loader">Loading…</div></div>
+        </div>
+      </div>
+
+      <!-- Job detail -->
+      <div>
+        <div class="card" id="job-detail-card">
+          <div class="empty">← Click a job to see SQL</div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Tooltip -->
+<div class="cy-tooltip" id="cy-tooltip"></div>
+
+<!-- Register Job Modal -->
+<div class="modal-overlay" id="modal-job">
+  <div class="modal">
+    <h2>Register Lineage Job</h2>
+    <div class="form-group">
+      <label>Job Name</label>
+      <input class="form-control" id="job-name" placeholder="e.g. enrich_users" />
+    </div>
+    <div class="form-group">
+      <label>Job Type</label>
+      <select class="form-control" id="job-type">
+        <option value="sql">SQL / View</option>
+        <option value="dbt">dbt Model</option>
+        <option value="spark">Spark</option>
+        <option value="manual">Manual</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>SQL Dialect</label>
+      <select class="form-control" id="job-dialect">
+        <option value="sqlite">SQLite</option>
+        <option value="mysql">MySQL</option>
+        <option value="postgres">PostgreSQL</option>
+        <option value="bigquery">BigQuery</option>
+        <option value="snowflake">Snowflake</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>SQL Query</label>
+      <textarea class="form-control" id="job-sql" rows="7"
+        placeholder="CREATE TABLE reporting.user_summary AS&#10;SELECT u.user_id, u.email, o.total_amount&#10;FROM raw.users u&#10;JOIN raw.orders o ON u.user_id = o.user_id"></textarea>
+    </div>
+    <div class="form-group">
+      <label>Description (optional)</label>
+      <input class="form-control" id="job-desc" placeholder="What does this job do?" />
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-job')">Cancel</button>
+      <button class="btn btn-primary" onclick="createJob()">Register & Parse</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+<script src="/static/app.js"></script>
+<script>
+  let cy = null;
+  const urlTable = new URLSearchParams(location.search).get('table');
+
+  init();
+
+  async function init() {
+    await loadTableSelect();
+    loadJobs();
+    if (urlTable) {
+      document.getElementById('table-select').value = urlTable;
+      onTableSelect();
+    }
+  }
+
+  async function loadTableSelect() {
+    const sources = await apiFetch('/api/sources');
+    const sel = document.getElementById('table-select');
+    for (const src of sources) {
+      const schemas = await apiFetch(`/api/sources/${src.id}/schemas`);
+      for (const sc of schemas) {
+        for (const tbl of sc.tables) {
+          const opt = document.createElement('option');
+          opt.value = tbl.id;
+          opt.textContent = `${src.name}.${sc.name}.${tbl.name}`;
+          opt.dataset.cols = JSON.stringify(tbl.columns);
+          sel.appendChild(opt);
+        }
+      }
+    }
+  }
+
+  function changeViewMode() {
+    const mode = document.getElementById('view-mode').value;
+    document.getElementById('col-select').style.display = mode === 'column' ? '' : 'none';
+    if (mode === 'table') loadTableLineage();
+    else loadColumnLineage();
+  }
+
+  async function onTableSelect() {
+    const sel = document.getElementById('table-select');
+    const opt = sel.options[sel.selectedIndex];
+    if (!opt || !opt.value) return;
+
+    // Populate column dropdown
+    const cols = JSON.parse(opt.dataset.cols || '[]');
+    const colSel = document.getElementById('col-select');
+    colSel.innerHTML = '<option value="">— Select a column —</option>';
+    cols.forEach(c => {
+      const o = document.createElement('option');
+      o.value = c.id;
+      o.textContent = c.name + (c.pii_tags.length ? ' 🔒' : '');
+      colSel.appendChild(o);
+    });
+
+    const mode = document.getElementById('view-mode').value;
+    if (mode === 'table') loadTableLineage();
+  }
+
+  async function loadTableLineage() {
+    const tblId = document.getElementById('table-select').value;
+    if (!tblId) return;
+    const graph = await apiFetch(`/api/lineage/table/${tblId}`);
+    renderGraph(graph);
+  }
+
+  async function loadColumnLineage() {
+    const colId = document.getElementById('col-select').value;
+    if (!colId) return;
+    const graph = await apiFetch(`/api/lineage/column/${colId}?depth=6`);
+    renderGraph(graph);
+  }
+
+  function renderGraph(graph) {
+    const container = document.getElementById('cy');
+    const empty = document.getElementById('cy-empty');
+
+    if (!graph.nodes.length) {
+      container.style.display = 'none';
+      empty.style.display = '';
+      empty.innerHTML = '<div class="empty">No lineage data for this selection yet.<br>Register a lineage job to populate this graph.</div>';
+      return;
+    }
+
+    container.style.display = '';
+    empty.style.display = 'none';
+
+    document.getElementById('edge-count').textContent = `${graph.nodes.length} nodes · ${graph.edges.length} edges`;
+
+    const elements = [
+      ...graph.nodes.map(n => ({
+        data: {
+          id: n.id, label: n.label,
+          pii: n.pii_tags.length > 0,
+          source_name: n.source_name || '',
+        }
+      })),
+      ...graph.edges.map(e => ({
+        data: {
+          id: e.id, source: e.source, target: e.target,
+          job_name: e.job_name, transform: e.transform || '',
+        }
+      })),
+    ];
+
+    if (cy) cy.destroy();
+
+    cy = cytoscape({
+      container,
+      elements,
+      style: [
+        {
+          selector: 'node',
+          style: {
+            'background-color': '#242736',
+            'border-color': '#2e3149',
+            'border-width': 1,
+            'label': 'data(label)',
+            'color': '#e2e4f0',
+            'font-size': 11,
+            'font-family': 'Inter, system-ui, sans-serif',
+            'text-valign': 'center',
+            'text-halign': 'center',
+            'width': 'label',
+            'height': 28,
+            'padding': '8px',
+            'shape': 'roundrectangle',
+            'text-max-width': 160,
+            'text-wrap': 'ellipsis',
+          }
+        },
+        {
+          selector: 'node[?pii]',
+          style: {
+            'background-color': 'rgba(255,85,114,0.15)',
+            'border-color': '#ff5572',
+            'border-width': 2,
+            'color': '#ff8fa3',
+          }
+        },
+        {
+          selector: 'node:selected',
+          style: {
+            'background-color': 'rgba(108,99,255,0.25)',
+            'border-color': '#6c63ff',
+            'border-width': 2,
+          }
+        },
+        {
+          selector: 'edge',
+          style: {
+            'width': 1.5,
+            'line-color': '#3a3d55',
+            'target-arrow-color': '#6c63ff',
+            'target-arrow-shape': 'triangle',
+            'arrow-scale': 1.2,
+            'curve-style': 'bezier',
+            'label': 'data(job_name)',
+            'font-size': 9,
+            'color': '#7b7f9e',
+            'text-background-color': '#0a0c14',
+            'text-background-opacity': 1,
+            'text-background-padding': '2px',
+          }
+        },
+        {
+          selector: 'edge:selected',
+          style: { 'line-color': '#6c63ff', 'width': 2.5 }
+        }
+      ],
+      layout: {
+        name: 'dagre',
+        rankDir: 'LR',
+        nodeSep: 40,
+        rankSep: 100,
+        padding: 24,
+      }
+    });
+
+    // Tooltip on hover
+    const tooltip = document.getElementById('cy-tooltip');
+    cy.on('mouseover', 'node', e => {
+      const d = e.target.data();
+      tooltip.style.display = 'block';
+      tooltip.innerHTML = `<strong>${d.label}</strong>${d.pii ? '<br><span style="color:#ff5572">⚠ PII Column</span>' : ''}${d.source_name ? `<br><span style="color:#7b7f9e">${d.source_name}</span>` : ''}`;
+    });
+    cy.on('mousemove', e => {
+      tooltip.style.left = (e.originalEvent.clientX + 14) + 'px';
+      tooltip.style.top = (e.originalEvent.clientY - 10) + 'px';
+    });
+    cy.on('mouseout', 'node', () => { tooltip.style.display = 'none'; });
+    cy.on('mouseover', 'edge', e => {
+      const d = e.target.data();
+      tooltip.style.display = 'block';
+      tooltip.innerHTML = `<strong>${d.job_name}</strong>${d.transform ? `<br><code style="font-size:11px;color:#7b7f9e">${d.transform.substring(0,120)}</code>` : ''}`;
+    });
+    cy.on('mouseout', 'edge', () => { tooltip.style.display = 'none'; });
+  }
+
+  function fitGraph() { cy && cy.fit(undefined, 24); }
+
+  async function loadJobs() {
+    const jobs = await apiFetch('/api/jobs');
+    const list = document.getElementById('jobs-list');
+    if (!jobs.length) { list.innerHTML = '<div class="empty">No jobs registered yet</div>'; return; }
+    list.innerHTML = jobs.map(j => `
+      <div class="job-row" onclick="showJobDetail(${j.id})">
+        <div>
+          <div style="font-weight:600;font-size:13px">${j.name}</div>
+          <div style="color:var(--text-muted);font-size:12px">${j.description || ''}</div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <span class="tag tag-info">${j.job_type}</span>
+          <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteJob(${j.id})">✕</button>
+        </div>
+      </div>`).join('');
+  }
+
+  async function showJobDetail(id) {
+    const job = await apiFetch(`/api/jobs/${id}`);
+    document.getElementById('job-detail-card').innerHTML = `
+      <div style="font-size:15px;font-weight:700;margin-bottom:8px">${job.name}</div>
+      <div style="color:var(--text-muted);font-size:12px;margin-bottom:12px">${job.description || 'No description'}</div>
+      <div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase">SQL</div>
+      <pre style="background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:12px;font-size:12px;overflow-x:auto;white-space:pre-wrap;color:#a0d8ef">${escHtml(job.sql_query)}</pre>
+      <div style="margin-top:10px;font-size:11px;color:var(--text-muted)">Created ${new Date(job.created_at).toLocaleString()}</div>`;
+  }
+
+  async function deleteJob(id) {
+    if (!confirm('Delete this lineage job?')) return;
+    const r = await api('DELETE', `/api/jobs/${id}`);
+    if (r.ok) { toast('Deleted', 'success'); loadJobs(); }
+  }
+
+  async function createJob() {
+    const body = {
+      name: document.getElementById('job-name').value.trim(),
+      job_type: document.getElementById('job-type').value,
+      dialect: document.getElementById('job-dialect').value,
+      sql_query: document.getElementById('job-sql').value.trim(),
+      description: document.getElementById('job-desc').value.trim() || null,
+      tags: [],
+    };
+    if (!body.name || !body.sql_query) return toast('Name and SQL required', 'error');
+    const r = await api('POST', '/api/jobs', body);
+    if (r.ok) {
+      toast('Job registered & lineage parsed', 'success');
+      closeModal('modal-job');
+      loadJobs();
+    } else {
+      const e = await r.json();
+      toast(e.detail || 'Error', 'error');
+    }
+  }
+
+  function openJobModal() { document.getElementById('modal-job').classList.add('open'); }
+
+  function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+</script>
+</body>
+</html>

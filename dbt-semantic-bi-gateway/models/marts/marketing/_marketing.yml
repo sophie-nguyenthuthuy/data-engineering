@@ -1,0 +1,18 @@
+version: 2
+
+models:
+  - name: fct_customer_ltv
+    description: >
+      Grain: one row per customer per acquisition cohort month.
+      Contains historical LTV, predicted 12-month LTV, and RFM score.
+    columns:
+      - name: customer_id
+        tests: [unique, not_null]
+
+  - name: fct_campaign_performance
+    description: >
+      Grain: one row per campaign.
+      Attribution revenue, ROAS, CAC, and conversion funnel metrics.
+    columns:
+      - name: campaign_id
+        tests: [unique, not_null]

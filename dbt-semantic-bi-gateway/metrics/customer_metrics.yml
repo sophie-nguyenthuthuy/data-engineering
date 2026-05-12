@@ -1,0 +1,85 @@
+version: 2
+
+metrics:
+  - name: total_customers
+    description: Total registered customer count.
+    type: simple
+    type_params:
+      measure:
+        name: customer_count
+        fill_nulls_with: 0
+    label: "Total Customers"
+
+  - name: total_paying_customers
+    description: Customers who have completed at least one purchase.
+    type: simple
+    type_params:
+      measure:
+        name: paying_customer_count
+        fill_nulls_with: 0
+    label: "Paying Customers"
+
+  - name: avg_customer_ltv
+    description: Average net revenue per paying customer (historical LTV).
+    type: simple
+    type_params:
+      measure: avg_customer_ltv
+    label: "Avg Customer LTV (USD)"
+
+  - name: churned_customers
+    description: >
+      Customers classified as churned (no order in 90+ days).
+    type: simple
+    type_params:
+      measure:
+        name: churned_customer_count
+        fill_nulls_with: 0
+    label: "Churned Customers"
+
+  - name: customer_conversion_rate
+    description: >
+      Percentage of registered customers who have made a purchase.
+      Formula: paying_customers / total_customers × 100.
+    type: ratio
+    type_params:
+      numerator:
+        name: paying_customer_count
+        fill_nulls_with: 0
+      denominator:
+        name: customer_count
+        fill_nulls_with: 1
+    label: "Customer Conversion Rate %"
+
+  - name: customer_churn_rate
+    description: >
+      Percentage of paying customers classified as churned.
+    type: ratio
+    type_params:
+      numerator:
+        name: churned_customer_count
+        fill_nulls_with: 0
+      denominator:
+        name: paying_customer_count
+        fill_nulls_with: 1
+    label: "Customer Churn Rate %"
+
+  - name: revenue_per_paying_customer
+    description: Net revenue divided by total paying customers.
+    type: derived
+    type_params:
+      expr: "total_net_revenue / total_paying_customers"
+      metrics:
+        - name: total_net_revenue
+        - name: total_paying_customers
+    label: "Revenue per Paying Customer (USD)"
+
+  - name: new_customers
+    description: >
+      Customers acquired in the selected time period
+      (first_seen_at within the query window).
+    type: simple
+    type_params:
+      measure: customer_count
+    label: "New Customers"
+    filter: |
+      {{ Dimension('customer__first_seen_at') }} >= {{ TimeDimension('customer__first_seen_at', 'day') }}

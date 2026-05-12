@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "out-of-order-stream-processor"
+version = "0.1.0"
+description = "Out-of-order event-time stream processor with dynamic watermarks and what-if simulation"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+keywords = ["streaming", "watermarks", "event-time", "windowing", "out-of-order"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["tests/*", "examples/*", "benchmarks/*"]

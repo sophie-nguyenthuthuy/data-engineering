@@ -1,0 +1,31 @@
+name: analytics
+version: 2.0.0
+config-version: 2
+profile: analytics
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+
+target-path: "target"
+clean-targets:
+  - target
+  - dbt_packages
+
+models:
+  analytics:
+    bronze:
+      +materialized: view
+      +schema: bronze
+    silver:
+      +materialized: incremental
+      +schema: silver
+      +on_schema_change: append_new_columns
+    gold:
+      +materialized: table
+      +schema: gold
+
+seeds:
+  analytics:
+    +schema: raw

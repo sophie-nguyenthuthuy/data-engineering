@@ -1,0 +1,42 @@
+version: 2
+
+models:
+  - name: silver_orders
+    description: "Cleaned, deduplicated orders enriched with customer + product attributes"
+    columns:
+      - name: order_id
+        tests: [not_null, unique]
+      - name: customer_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('silver_customers')
+              field: customer_id
+      - name: product_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('silver_products')
+              field: product_id
+      - name: status
+        tests:
+          - accepted_values:
+              values: [pending, paid, shipped, delivered, cancelled]
+      - name: amount_usd
+        tests:
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+
+  - name: silver_customers
+    columns:
+      - name: customer_id
+        tests: [not_null, unique]
+      - name: email
+        tests: [not_null]
+
+  - name: silver_products
+    columns:
+      - name: product_id
+        tests: [not_null, unique]
+      - name: sku
+        tests: [not_null, unique]

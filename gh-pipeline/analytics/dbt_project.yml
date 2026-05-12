@@ -1,0 +1,32 @@
+name: gh_pipeline
+version: "1.0.0"
+config-version: 2
+
+profile: gh_pipeline
+
+model-paths: ["models"]
+macro-paths: ["macros"]
+seed-paths:  ["seeds"]
+test-paths:  ["tests"]
+
+target-path: "target"
+clean-targets:
+  - target
+  - dbt_packages
+
+models:
+  gh_pipeline:
+    staging:
+      +materialized: view
+      +schema: staging
+    marts:
+      +materialized: table
+      +schema: marts
+      +partition_by:
+        field: activity_date
+        data_type: date
+        granularity: day
+
+vars:
+  start_date: "2024-01-01"
+  end_date:   "2024-12-31"

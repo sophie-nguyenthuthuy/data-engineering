@@ -1,0 +1,25 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "cctest"
+version = "0.1.0"
+description = "Columnar Compression Research Testbed: FSST, ALP, and Gorilla encoding with adaptive per-column selector"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.24",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-benchmark>=4.0",
+    "tabulate>=0.9",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cctest"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

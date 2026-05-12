@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "distributed-query-planner"
+version = "0.1.0"
+description = "Federated query optimizer with predicate pushdown across MongoDB, Parquet, and PostgreSQL"
+requires-python = ">=3.11"
+dependencies = [
+    "pyarrow>=14.0",
+    "pymongo>=4.6",
+    "psycopg2-binary>=2.9",
+    "sqlglot>=20.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.4", "pytest-cov", "black", "ruff", "mypy"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.setuptools.packages.find]
+where = ["src"]

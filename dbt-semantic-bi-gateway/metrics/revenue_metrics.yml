@@ -1,0 +1,175 @@
+version: 2
+
+metrics:
+  # ── Simple aggregate metrics ───────────────────────────────────────────────
+
+  - name: total_gross_revenue
+    description: >
+      Total gross revenue in USD before discounts.
+      Used in executive dashboards and finance reporting.
+    type: simple
+    type_params:
+      measure:
+        name: gross_revenue
+        fill_nulls_with: 0
+    label: "Gross Revenue (USD)"
+
+  - name: total_net_revenue
+    description: >
+      Total net revenue in USD after discounts.
+      Primary top-line revenue metric for all BI tools.
+    type: simple
+    type_params:
+      measure:
+        name: net_revenue
+        fill_nulls_with: 0
+    label: "Net Revenue (USD)"
+
+  - name: total_orders
+    description: Count of all orders placed (including cancelled).
+    type: simple
+    type_params:
+      measure:
+        name: order_count
+        fill_nulls_with: 0
+    label: "Total Orders"
+
+  - name: total_discounts
+    description: Total discount value applied across all orders.
+    type: simple
+    type_params:
+      measure:
+        name: discount_amount
+        fill_nulls_with: 0
+    label: "Total Discounts (USD)"
+
+  - name: unique_customers_ordered
+    description: Number of distinct customers who placed at least one order.
+    type: simple
+    type_params:
+      measure: distinct_customers
+    label: "Unique Ordering Customers"
+
+  - name: total_units_sold
+    description: Total product units sold across all order line items.
+    type: simple
+    type_params:
+      measure:
+        name: units_sold
+        fill_nulls_with: 0
+    label: "Units Sold"
+
+  - name: total_gross_profit
+    description: Total gross profit (net revenue minus COGS).
+    type: simple
+    type_params:
+      measure:
+        name: gross_profit
+        fill_nulls_with: 0
+    label: "Gross Profit (USD)"
+
+  # ── Ratio metrics ──────────────────────────────────────────────────────────
+
+  - name: avg_order_value
+    description: Average net order value (net revenue ÷ order count).
+    type: ratio
+    type_params:
+      numerator:
+        name: net_revenue
+        fill_nulls_with: 0
+      denominator:
+        name: order_count
+        fill_nulls_with: 1
+    label: "Average Order Value (USD)"
+
+  - name: gross_margin_rate
+    description: >
+      Gross margin as a percentage of net revenue.
+      Formula: gross_profit / net_revenue × 100.
+    type: ratio
+    type_params:
+      numerator:
+        name: gross_profit
+        fill_nulls_with: 0
+      denominator:
+        name: item_net_revenue
+        fill_nulls_with: 1
+    label: "Gross Margin %"
+
+  - name: return_rate
+    description: >
+      Percentage of orders that were returned or refunded.
+      Formula: returned_orders / total_orders × 100.
+    type: ratio
+    type_params:
+      numerator:
+        name: returned_order_count
+        fill_nulls_with: 0
+      denominator:
+        name: order_count
+        fill_nulls_with: 1
+    label: "Return Rate %"
+
+  - name: cancellation_rate
+    description: >
+      Percentage of orders that were cancelled.
+    type: ratio
+    type_params:
+      numerator:
+        name: cancelled_order_count
+        fill_nulls_with: 0
+      denominator:
+        name: order_count
+        fill_nulls_with: 1
+    label: "Cancellation Rate %"
+
+  - name: discount_rate
+    description: >
+      Discounts as a percentage of gross revenue.
+    type: ratio
+    type_params:
+      numerator:
+        name: discount_amount
+        fill_nulls_with: 0
+      denominator:
+        name: gross_revenue
+        fill_nulls_with: 1
+    label: "Discount Rate %"
+
+  # ── Derived metrics ────────────────────────────────────────────────────────
+
+  - name: revenue_per_customer
+    description: Net revenue divided by unique ordering customers.
+    type: derived
+    type_params:
+      expr: "total_net_revenue / unique_customers_ordered"
+      metrics:
+        - name: total_net_revenue
+        - name: unique_customers_ordered
+    label: "Revenue per Customer (USD)"
+
+  # ── Cumulative metrics ─────────────────────────────────────────────────────
+
+  - name: cumulative_revenue_ytd
+    description: >
+      Year-to-date cumulative net revenue.
+      Resets at the start of each calendar year.
+    type: cumulative
+    type_params:
+      measure:
+        name: net_revenue
+        fill_nulls_with: 0
+      window: unbounded
+      grain_to_date: year
+    label: "Cumulative Revenue YTD (USD)"
+
+  - name: cumulative_orders_mtd
+    description: Month-to-date cumulative order count.
+    type: cumulative
+    type_params:
+      measure:
+        name: order_count
+        fill_nulls_with: 0
+      window: unbounded
+      grain_to_date: month
+    label: "Cumulative Orders MTD"

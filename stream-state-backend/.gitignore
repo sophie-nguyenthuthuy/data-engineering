@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyc
+.venv/
+.env
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+
+# RocksDB data directories
+/tmp/ssb_*/
+*.sst
+*.log
+MANIFEST-*
+CURRENT
+LOCK
+
+# IDE
+.idea/
+.vscode/

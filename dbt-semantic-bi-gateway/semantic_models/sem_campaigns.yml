@@ -1,0 +1,65 @@
+version: 2
+
+semantic_models:
+  - name: campaign_performance
+    description: >
+      Semantic model over fct_campaign_performance.
+      Enables ROAS, CAC, and spend-efficiency metrics across marketing channels.
+    model: ref('fct_campaign_performance')
+    defaults:
+      agg_time_dimension: start_date
+
+    entities:
+      - name: campaign
+        type: primary
+        expr: campaign_id
+
+    dimensions:
+      - name: start_date
+        type: time
+        type_params:
+          time_granularity: day
+
+      - name: channel
+        type: categorical
+        description: Marketing channel (paid_search, paid_social, email, etc.).
+
+      - name: campaign_name
+        type: categorical
+
+    measures:
+      - name: campaign_count
+        agg: count
+        expr: campaign_id
+
+      - name: total_spend
+        description: Total marketing spend in USD.
+        agg: sum
+        expr: spend_usd
+
+      - name: total_budget
+        agg: sum
+        expr: budget_usd
+
+      - name: campaign_attributed_revenue
+        description: Revenue attributed to campaigns via last-touch model.
+        agg: sum
+        expr: attributed_revenue_usd
+
+      - name: campaign_attributed_orders
+        agg: sum
+        expr: attributed_orders
+
+      - name: campaign_attributed_customers
+        agg: sum
+        expr: attributed_customers
+
+      - name: avg_roas
+        description: Average Return on Ad Spend across campaigns.
+        agg: average
+        expr: roas
+
+      - name: avg_cac
+        description: Average Cost per Acquisition in USD.
+        agg: average
+        expr: cost_per_acquisition_usd

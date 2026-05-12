@@ -1,0 +1,36 @@
+name: weekly_revenue_email
+description: "Email the finance team a weekly MRR/ARR summary every Monday at 08:00 UTC"
+enabled: true
+
+source:
+  type: postgres
+  query: |
+    SELECT
+      plan,
+      COUNT(*)                   AS active_subscriptions,
+      SUM(mrr)                   AS total_mrr,
+      SUM(mrr) * 12              AS total_arr,
+      AVG(mrr)                   AS avg_mrr,
+      SUM(CASE WHEN churned_at >= DATE_TRUNC('week', NOW()) - INTERVAL '7 days'
+               THEN mrr ELSE 0 END) AS churned_mrr_last_week
+    FROM subscriptions
+    WHERE status = 'active'
+    GROUP BY plan
+    ORDER BY total_mrr DESC;
+
+destination:
+  type: email
+  params:
+    to:
+      - finance@company.com
+      - data-team@company.com
+    subject: "Weekly Revenue Report — {count} plan tiers"
+    body_template: |
+      <h2>Weekly Revenue Summary</h2>
+      <p>Generated automatically by Reverse ETL. {count} plan tier(s) below.</p>
+      {rows_html}
+      <hr><small>Sent by reverse-etl</small>
+
+schedule:
+  type: cron
+  cron: "0 8 * * 1"   # 08:00 UTC every Monday

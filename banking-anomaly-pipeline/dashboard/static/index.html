@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Banking Anomaly Pipeline — Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --green: #3fb950;
+    --yellow: #d29922;
+    --orange: #f0883e;
+    --red: #f85149;
+    --blue: #58a6ff;
+    --purple: #bc8cff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px; }
+
+  header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 24px; background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  header h1 { font-size: 18px; font-weight: 600; }
+  .pulse { width: 10px; height: 10px; border-radius: 50%; background: var(--green); animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+  .status-text { color: var(--muted); font-size: 12px; margin-left: auto; }
+
+  .grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; padding: 16px 24px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 16px;
+  }
+  .card-label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px; }
+  .card-value { font-size: 28px; font-weight: 700; }
+  .card-value.green { color: var(--green); }
+  .card-value.yellow { color: var(--yellow); }
+  .card-value.orange { color: var(--orange); }
+  .card-value.red { color: var(--red); }
+
+  .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 0 24px 16px; }
+  .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+  .chart-card h3 { font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 12px; text-transform: uppercase; letter-spacing: .05em; }
+  canvas { max-height: 200px; }
+
+  .feeds { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 0 24px 24px; }
+  .feed-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .feed-header { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .feed-header h3 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+  .feed-count { background: var(--border); border-radius: 10px; padding: 2px 8px; font-size: 11px; color: var(--muted); }
+  .feed-body { height: 320px; overflow-y: auto; }
+  .feed-body::-webkit-scrollbar { width: 4px; }
+  .feed-body::-webkit-scrollbar-track { background: transparent; }
+  .feed-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .tx-row {
+    display: grid; grid-template-columns: 90px 90px 1fr 80px 60px;
+    gap: 8px; align-items: center;
+    padding: 8px 16px; border-bottom: 1px solid var(--border);
+    font-size: 12px; transition: background .15s;
+    animation: slidein .2s ease;
+  }
+  @keyframes slidein { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+  .tx-row:hover { background: rgba(255,255,255,.03); }
+  .tx-account { color: var(--blue); font-family: monospace; }
+  .tx-amount { font-weight: 600; text-align: right; }
+  .tx-merchant { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tx-city { color: var(--muted); font-size: 11px; }
+  .tx-time { color: var(--muted); font-size: 11px; text-align: right; }
+
+  .alert-row {
+    padding: 10px 16px; border-bottom: 1px solid var(--border);
+    animation: slidein .2s ease;
+  }
+  .alert-row:hover { background: rgba(255,255,255,.03); }
+  .alert-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .badge {
+    font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px;
+    text-transform: uppercase; letter-spacing: .04em;
+  }
+  .badge.CRITICAL { background: rgba(248,81,73,.2); color: var(--red); }
+  .badge.HIGH { background: rgba(240,136,62,.2); color: var(--orange); }
+  .badge.MEDIUM { background: rgba(210,153,34,.2); color: var(--yellow); }
+  .badge.LOW { background: rgba(63,185,80,.15); color: var(--green); }
+  .alert-account { color: var(--blue); font-family: monospace; font-size: 12px; }
+  .alert-amount { font-weight: 600; margin-left: auto; }
+  .alert-rules { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+  .rule-chip {
+    font-size: 10px; padding: 1px 5px; border-radius: 3px;
+    background: var(--border); color: var(--muted);
+  }
+  .alert-detail { color: var(--muted); font-size: 11px; margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="pulse" id="pulse"></div>
+  <h1>Banking Anomaly Pipeline</h1>
+  <span class="status-text" id="status-text">Connecting…</span>
+</header>
+
+<div class="grid">
+  <div class="card">
+    <div class="card-label">Transactions Seen</div>
+    <div class="card-value green" id="stat-tx">0</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Fraud Alerts</div>
+    <div class="card-value red" id="stat-alerts">0</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Alert Rate</div>
+    <div class="card-value yellow" id="stat-rate">0.00%</div>
+  </div>
+  <div class="card">
+    <div class="card-label">Avg Transaction</div>
+    <div class="card-value blue" id="stat-avg">$0</div>
+  </div>
+</div>
+
+<div class="charts">
+  <div class="chart-card">
+    <h3>Alerts by Rule</h3>
+    <canvas id="chart-rules"></canvas>
+  </div>
+  <div class="chart-card">
+    <h3>Alerts by Severity</h3>
+    <canvas id="chart-severity"></canvas>
+  </div>
+</div>
+
+<div class="feeds">
+  <div class="feed-card">
+    <div class="feed-header">
+      <h3>Live Transactions</h3>
+      <span class="feed-count" id="tx-count">0</span>
+    </div>
+    <div class="feed-body" id="tx-feed"></div>
+  </div>
+  <div class="feed-card">
+    <div class="feed-header">
+      <h3>Fraud Alerts</h3>
+      <span class="feed-count" id="alert-count-badge">0</span>
+    </div>
+    <div class="feed-body" id="alert-feed"></div>
+  </div>
+</div>
+
+<script>
+const MAX_ROWS = 80;
+let txCount = 0, alertCount = 0;
+
+// ── Charts ──────────────────────────────────────────────────────────────────
+const RULE_COLORS = {
+  HIGH_AMOUNT:          '#f85149',
+  CARD_NOT_PRESENT_HIGH:'#f0883e',
+  ODD_HOURS:            '#d29922',
+  ROUND_NUMBER:         '#3fb950',
+  HIGH_RISK_MERCHANT:   '#bc8cff',
+  VELOCITY:             '#58a6ff',
+  GEO_VELOCITY:         '#ff7edb',
+};
+const SEV_COLORS = {
+  CRITICAL: '#f85149', HIGH: '#f0883e', MEDIUM: '#d29922', LOW: '#3fb950',
+};
+
+function makeChart(id, type, labels, colors) {
+  const ctx = document.getElementById(id).getContext('2d');
+  return new Chart(ctx, {
+    type,
+    data: {
+      labels,
+      datasets: [{
+        data: labels.map(() => 0),
+        backgroundColor: colors,
+        borderWidth: 0,
+        borderRadius: type === 'bar' ? 4 : 0,
+      }],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: true,
+      plugins: { legend: { display: type !== 'bar', labels: { color: '#8b949e', font: { size: 11 } } } },
+      scales: type === 'bar' ? {
+        x: { ticks: { color: '#8b949e', font: { size: 10 } }, grid: { color: '#21262d' } },
+        y: { ticks: { color: '#8b949e' }, grid: { color: '#21262d' }, beginAtZero: true },
+      } : {},
+    },
+  });
+}
+
+const ruleLabels = Object.keys(RULE_COLORS);
+const ruleChart = makeChart('chart-rules', 'bar', ruleLabels, ruleLabels.map(k => RULE_COLORS[k]));
+const sevLabels = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'];
+const sevChart  = makeChart('chart-severity', 'doughnut', sevLabels, sevLabels.map(k => SEV_COLORS[k]));
+
+function updateCharts(byRule, bySev) {
+  ruleChart.data.datasets[0].data = ruleLabels.map(k => byRule[k] || 0);
+  ruleChart.update('none');
+  sevChart.data.datasets[0].data = sevLabels.map(k => bySev[k] || 0);
+  sevChart.update('none');
+}
+
+// ── Stats polling ────────────────────────────────────────────────────────────
+async function refreshStats() {
+  try {
+    const r = await fetch('/api/stats');
+    const s = await r.json();
+    document.getElementById('stat-tx').textContent    = s.tx_count.toLocaleString();
+    document.getElementById('stat-alerts').textContent = s.alert_count.toLocaleString();
+    document.getElementById('stat-rate').textContent   = s.alert_rate_pct + '%';
+    document.getElementById('stat-avg').textContent    = '$' + s.avg_amount.toLocaleString();
+    document.getElementById('status-text').textContent =
+      `Uptime ${Math.floor(s.uptime_sec / 60)}m ${s.uptime_sec % 60}s  ·  ${s.tx_count} tx processed`;
+    updateCharts(s.alerts_by_rule, s.alerts_by_severity);
+  } catch (_) {}
+}
+setInterval(refreshStats, 3000);
+refreshStats();
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function timeFmt(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleTimeString('en-US', { hour12: false });
+}
+function prependRow(feedId, el, max) {
+  const feed = document.getElementById(feedId);
+  feed.insertBefore(el, feed.firstChild);
+  while (feed.children.length > max) feed.removeChild(feed.lastChild);
+}
+
+// ── Transaction SSE ──────────────────────────────────────────────────────────
+const txFeed = new EventSource('/stream');
+txFeed.onmessage = e => {
+  const tx = JSON.parse(e.data);
+  txCount++;
+  document.getElementById('tx-count').textContent = txCount;
+
+  const row = document.createElement('div');
+  row.className = 'tx-row';
+  const amt = parseFloat(tx.amount || 0);
+  const amtColor = amt >= 5000 ? 'red' : amt >= 1000 ? 'orange' : 'text';
+  row.innerHTML = `
+    <span class="tx-account">${tx.account_id}</span>
+    <span class="tx-amount" style="color:var(--${amtColor})">$${amt.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
+    <span class="tx-merchant">${tx.merchant || ''}</span>
+    <span class="tx-city">${tx.city || ''}</span>
+    <span class="tx-time">${timeFmt(tx.timestamp)}</span>
+  `;
+  prependRow('tx-feed', row, MAX_ROWS);
+};
+txFeed.onerror = () => {
+  document.getElementById('pulse').style.background = 'var(--red)';
+};
+
+// ── Alert SSE ────────────────────────────────────────────────────────────────
+const alertFeed = new EventSource('/alerts');
+alertFeed.onmessage = e => {
+  const alert = JSON.parse(e.data);
+  alertCount++;
+  document.getElementById('alert-count-badge').textContent = alertCount;
+
+  const row = document.createElement('div');
+  row.className = 'alert-row';
+  const signals = Array.isArray(alert.signals) ? alert.signals : [];
+  const chips = signals.map(s => `<span class="rule-chip">${s.rule}</span>`).join('');
+  const topDetail = signals[0]?.detail || '';
+  const amt = parseFloat(alert.amount || 0);
+
+  row.innerHTML = `
+    <div class="alert-header">
+      <span class="badge ${alert.severity}">${alert.severity}</span>
+      <span class="alert-account">${alert.account_id}</span>
+      <span class="alert-amount">$${amt.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
+    </div>
+    <div class="alert-rules">${chips}</div>
+    <div class="alert-detail">${topDetail}</div>
+  `;
+  prependRow('alert-feed', row, MAX_ROWS);
+};
+</script>
+</body>
+</html>

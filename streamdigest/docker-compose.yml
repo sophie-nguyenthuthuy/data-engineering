@@ -1,0 +1,54 @@
+# One-command self-hosted streamdigest stack.
+# Usage:
+#   cp .env.example .env        # set GITHUB_TOKEN
+#   docker compose up -d
+#   docker compose run --rm app streamdigest run
+#   docker compose run --rm app streamdigest digest
+#
+# Notes:
+# - The `ollama-init` service pulls the model on first boot and then exits.
+# - The `app` service is a one-shot CLI by default; use `run --rm app <cmd>`.
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: streamdigest-ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-models:/root/.ollama
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  ollama-init:
+    image: ollama/ollama:latest
+    depends_on:
+      ollama:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["ollama pull ${OLLAMA_MODEL:-llama3.2:3b}"]
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    restart: "no"
+
+  app:
+    build: .
+    image: streamdigest:local
+    container_name: streamdigest-app
+    depends_on:
+      ollama:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      DUCKDB_PATH: /data/streamdigest.duckdb
+    volumes:
+      - streamdigest-data:/data
+
+volumes:
+  ollama-models:
+  streamdigest-data:

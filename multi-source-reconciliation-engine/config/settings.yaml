@@ -1,0 +1,55 @@
+reconciliation:
+  sla_minutes: 15
+  rounding_threshold: 0.05        # differences <= this are classified as rounding
+  timing_day_window: 3            # date difference <= this days = timing discrepancy
+  fuzzy_match_threshold: 80       # minimum RapidFuzz score (0-100)
+  confidence:
+    exact_match: 1.0
+    high: 0.85
+    medium: 0.65
+    low: 0.40
+
+sources:
+  core_banking:
+    id_field: transaction_id
+    amount_field: amount
+    date_field: value_date
+    description_field: narrative
+    reference_field: reference_number
+  reporting_system:
+    id_field: txn_ref
+    amount_field: net_amount
+    date_field: posting_date
+    description_field: description
+    reference_field: external_ref
+  third_party_aggregator:
+    id_field: agg_id
+    amount_field: transaction_amount
+    date_field: transaction_date
+    description_field: memo
+    reference_field: orig_ref
+  manual_entries:
+    id_field: entry_id
+    amount_field: debit_credit_amount
+    date_field: entry_date
+    description_field: notes
+    reference_field: source_ref
+
+matching:
+  primary_keys:
+    - reference_number
+    - amount
+  secondary_keys:
+    - description
+    - date
+  weights:
+    reference: 0.40
+    amount: 0.35
+    description: 0.15
+    date: 0.10
+
+reporting:
+  output_formats:
+    - json
+    - html
+  output_dir: reports

@@ -1,0 +1,65 @@
+id: user-events
+version: "1.0.0"
+producer: event-ingestion-service
+consumers:
+  - ml-feature-store
+  - analytics-team
+owner: data-platform
+description: >
+  Raw user interaction events from the web and mobile apps.
+
+tags:
+  - events
+  - clickstream
+
+fields:
+  - name: event_id
+    type: string
+    nullable: false
+    constraints:
+      unique: true
+
+  - name: user_id
+    type: string
+    nullable: false
+
+  - name: session_id
+    type: string
+    nullable: false
+
+  - name: event_type
+    type: string
+    nullable: false
+    constraints:
+      allowed_values: [page_view, click, purchase, search, logout]
+
+  - name: occurred_at
+    type: timestamp
+    nullable: false
+
+  - name: properties
+    type: object
+    nullable: true
+    description: Free-form event properties as JSON
+
+sla_rules:
+  - name: minimum_events
+    rule_type: row_count
+    threshold: 10000
+    description: Expect at least 10k events per hourly batch
+
+  - name: event_completeness
+    rule_type: completeness
+    threshold: 0.95
+
+  - name: pipeline_latency
+    rule_type: latency
+    threshold: 300
+    unit: s
+    description: Events must be processed within 5 minutes
+
+semantic_rules:
+  - name: no_future_events
+    expression: "True"  # placeholder — inject actual timestamp check at runtime
+    severity: warning
+    description: No events should have a future occurred_at timestamp

@@ -1,0 +1,5 @@
+[
+  { "event_id": "evt-001", "schema_version": 1, "payload": { "id": 1, "email": "alice@example.com", "name": "Alice Smith" } },
+  { "event_id": "evt-002", "schema_version": 1, "payload": { "id": 2, "email": "bob@example.com",   "name": "Bob Jones" } },
+  { "event_id": "evt-003", "schema_version": 1, "payload": { "id": 3, "email": "carol@example.com", "name": "Carol White" } }
+]

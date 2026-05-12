@@ -1,0 +1,23 @@
+[
+  {"bank_code": "VCB", "term_label": "1 tháng",  "rate_pa": 4.70, "rate_type": "standard"},
+  {"bank_code": "VCB", "term_label": "3 tháng",  "rate_pa": 4.80, "rate_type": "standard"},
+  {"bank_code": "VCB", "term_label": "6 tháng",  "rate_pa": 5.00, "rate_type": "standard"},
+  {"bank_code": "VCB", "term_label": "12 tháng", "rate_pa": 5.60, "rate_type": "standard"},
+  {"bank_code": "VCB", "term_label": "24 tháng", "rate_pa": 5.60, "rate_type": "standard"},
+  {"bank_code": "VCB", "term_label": "3 tháng",  "rate_pa": 4.90, "rate_type": "online"},
+  {"bank_code": "VCB", "term_label": "12 tháng", "rate_pa": 5.70, "rate_type": "online"},
+  {"bank_code": "BIDV","term_label": "1 tháng",  "rate_pa": 4.70, "rate_type": "standard"},
+  {"bank_code": "BIDV","term_label": "3 tháng",  "rate_pa": 5.00, "rate_type": "standard"},
+  {"bank_code": "BIDV","term_label": "6 tháng",  "rate_pa": 5.30, "rate_type": "standard"},
+  {"bank_code": "BIDV","term_label": "12 tháng", "rate_pa": 5.80, "rate_type": "standard"},
+  {"bank_code": "TCB", "term_label": "1 tháng",  "rate_pa": 5.00, "rate_type": "standard"},
+  {"bank_code": "TCB", "term_label": "3 tháng",  "rate_pa": 5.20, "rate_type": "standard"},
+  {"bank_code": "TCB", "term_label": "6 tháng",  "rate_pa": 5.50, "rate_type": "standard"},
+  {"bank_code": "TCB", "term_label": "12 tháng", "rate_pa": 6.00, "rate_type": "standard"},
+  {"bank_code": "MBB", "term_label": "3 tháng",  "rate_pa": 5.10, "rate_type": "standard"},
+  {"bank_code": "MBB", "term_label": "6 tháng",  "rate_pa": 5.40, "rate_type": "standard"},
+  {"bank_code": "MBB", "term_label": "12 tháng", "rate_pa": 5.90, "rate_type": "standard"},
+  {"bank_code": "VPB", "term_label": "3 tháng",  "rate_pa": 5.50, "rate_type": "standard"},
+  {"bank_code": "VPB", "term_label": "6 tháng",  "rate_pa": 5.80, "rate_type": "standard"},
+  {"bank_code": "VPB", "term_label": "12 tháng", "rate_pa": 6.50, "rate_type": "standard"}
+]

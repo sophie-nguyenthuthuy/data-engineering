@@ -1,0 +1,128 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# Query Federation Engine — example catalog configuration
+#
+# Copy to catalog.yaml and fill in real connection details.
+# Tables are referenced in SQL as <source_name>.<table_name>
+# e.g.  SELECT * FROM postgres.orders JOIN mongodb.users ON ...
+# ──────────────────────────────────────────────────────────────────────────────
+
+sources:
+
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
+  - name: postgres
+    type: postgres
+    connection:
+      host: localhost
+      port: 5432
+      dbname: analytics
+      user: analyst
+      password: secret
+
+  # ── MongoDB ─────────────────────────────────────────────────────────────────
+  - name: mongodb
+    type: mongodb
+    connection:
+      uri: mongodb://localhost:27017
+      database: app_db
+
+  # ── S3 Parquet ──────────────────────────────────────────────────────────────
+  - name: s3_parquet
+    type: s3_parquet
+    connection:
+      path: s3://my-data-lake/warehouse/
+      region: us-east-1
+      # access_key and secret_key are optional; uses AWS credential chain by default
+      # access_key: AKIAIOSFODNN7EXAMPLE
+      # secret_key: wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+
+  # ── REST API ─────────────────────────────────────────────────────────────────
+  - name: rest_api
+    type: rest_api
+    connection:
+      base_url: https://api.example.com/v1
+      headers:
+        Authorization: "Bearer YOUR_TOKEN_HERE"
+      page_size: 200
+      page_param: page
+      limit_param: per_page
+
+
+tables:
+
+  # ── postgres ─────────────────────────────────────────────────────────────────
+  - source: postgres
+    table: orders
+    estimated_rows: 2000000
+    columns:
+      - { name: id,         type: int }
+      - { name: user_id,    type: int }
+      - { name: total,      type: float }
+      - { name: status,     type: string }
+      - { name: created_at, type: timestamp }
+
+  - source: postgres
+    table: order_items
+    estimated_rows: 8000000
+    columns:
+      - { name: id,         type: int }
+      - { name: order_id,   type: int }
+      - { name: product_id, type: int }
+      - { name: quantity,   type: int }
+      - { name: unit_price, type: float }
+
+  # ── mongodb ──────────────────────────────────────────────────────────────────
+  - source: mongodb
+    table: users
+    estimated_rows: 500000
+    columns:
+      - { name: id,         type: int }
+      - { name: name,       type: string }
+      - { name: email,      type: string }
+      - { name: country,    type: string }
+      - { name: tier,       type: string }
+      - { name: created_at, type: timestamp }
+
+  - source: mongodb
+    table: sessions
+    estimated_rows: 10000000
+    columns:
+      - { name: session_id, type: string }
+      - { name: user_id,    type: int }
+      - { name: started_at, type: timestamp }
+      - { name: duration_s, type: int }
+
+  # ── s3_parquet ───────────────────────────────────────────────────────────────
+  - source: s3_parquet
+    table: events
+    estimated_rows: 50000000
+    columns:
+      - { name: order_id,   type: int }
+      - { name: event_type, type: string }
+      - { name: channel,    type: string }
+      - { name: ts,         type: timestamp }
+
+  - source: s3_parquet
+    table: page_views
+    estimated_rows: 200000000
+    columns:
+      - { name: user_id,    type: int }
+      - { name: page,       type: string }
+      - { name: referrer,   type: string }
+      - { name: ts,         type: timestamp }
+
+  # ── rest_api ─────────────────────────────────────────────────────────────────
+  - source: rest_api
+    table: products
+    estimated_rows: 5000
+    connection:
+      endpoint: /products
+      param_map:
+        category: category
+        status:   status
+      result_path: data.products
+    columns:
+      - { name: id,       type: int }
+      - { name: name,     type: string }
+      - { name: category, type: string }
+      - { name: price,    type: float }
+      - { name: status,   type: string }

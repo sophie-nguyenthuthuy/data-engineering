@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Data Catalog — PII Report</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+<div class="layout">
+  <nav class="sidebar">
+    <div class="logo">Data<span>Catalog</span></div>
+    <a href="/" class="nav-item">⬡ &nbsp;Dashboard</a>
+    <a href="/assets" class="nav-item">🗄 &nbsp;Assets</a>
+    <a href="/lineage" class="nav-item">🔗 &nbsp;Lineage</a>
+    <a href="/pii" class="nav-item active">🔒 &nbsp;PII Report</a>
+    <a href="/docs" class="nav-item" target="_blank">📖 &nbsp;API Docs</a>
+  </nav>
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <h1>PII Report</h1>
+        <div class="sub">All columns flagged as personally identifiable information</div>
+      </div>
+      <button class="btn btn-outline" onclick="exportCSV()">⬇ Export CSV</button>
+    </div>
+
+    <!-- Category summary -->
+    <div id="pii-summary" class="stat-grid" style="margin-bottom:28px"></div>
+
+    <!-- Filters -->
+    <div class="flex-row" style="margin-bottom:16px;gap:12px">
+      <input class="form-control" id="filter-input" placeholder="Filter by column or table name…"
+        oninput="filterRows()" style="max-width:320px" />
+      <select class="form-control" id="filter-tag" onchange="filterRows()" style="max-width:200px">
+        <option value="">All PII types</option>
+      </select>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Source</th>
+            <th>Schema</th>
+            <th>Table</th>
+            <th>Column</th>
+            <th>PII Tags</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="pii-tbody">
+          <tr><td colspan="6" class="loader">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<div id="toast-container"></div>
+<script src="/static/app.js"></script>
+<script>
+  let allRows = [];
+
+  loadPII();
+
+  async function loadPII() {
+    const data = await apiFetch('/api/pii-report');
+    allRows = data;
+
+    // Build category counts
+    const counts = {};
+    data.forEach(r => r.pii_tags.filter(t => t !== 'PII').forEach(t => {
+      counts[t] = (counts[t] || 0) + 1;
+    }));
+
+    const summary = document.getElementById('pii-summary');
+    summary.innerHTML = `
+      <div class="stat-card">
+        <div class="val" style="color:var(--danger)">${data.length}</div>
+        <div class="lbl">Total PII Columns</div>
+      </div>
+      ${Object.entries(counts).sort((a,b) => b[1]-a[1]).slice(0,6).map(([k,v]) => `
+        <div class="stat-card">
+          <div class="val" style="color:var(--warning);font-size:24px">${v}</div>
+          <div class="lbl">${k}</div>
+        </div>`).join('')}`;
+
+    // Populate tag filter
+    const tagSel = document.getElementById('filter-tag');
+    Object.keys(counts).sort().forEach(t => {
+      const o = document.createElement('option');
+      o.value = t; o.textContent = t;
+      tagSel.appendChild(o);
+    });
+
+    renderRows(data);
+  }
+
+  function filterRows() {
+    const q = document.getElementById('filter-input').value.toLowerCase();
+    const tag = document.getElementById('filter-tag').value;
+    const filtered = allRows.filter(r => {
+      const matchQ = !q || r.table_name.toLowerCase().includes(q) || (r.column_name || '').toLowerCase().includes(q);
+      const matchTag = !tag || r.pii_tags.includes(tag);
+      return matchQ && matchTag;
+    });
+    renderRows(filtered);
+  }
+
+  function renderRows(rows) {
+    const tbody = document.getElementById('pii-tbody');
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty">No PII columns found. Run a scan on your sources first.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(r => `
+      <tr>
+        <td><span class="tag tag-neutral">${r.source_name}</span></td>
+        <td style="color:var(--text-muted)">${r.schema_name}</td>
+        <td><a href="/assets">${r.table_name}</a></td>
+        <td><strong>${r.column_name}</strong></td>
+        <td>${r.pii_tags.map(t => `<span class="tag ${t === 'PII' ? 'tag-pii' : 'tag-warn'}" style="margin-right:3px">${t}</span>`).join('')}</td>
+        <td>
+          <a href="/lineage?table=" class="btn btn-outline btn-sm">Lineage →</a>
+        </td>
+      </tr>`).join('');
+  }
+
+  function exportCSV() {
+    const tag = document.getElementById('filter-tag').value;
+    const q = document.getElementById('filter-input').value.toLowerCase();
+    const rows = allRows.filter(r => {
+      const matchQ = !q || r.table_name.toLowerCase().includes(q) || (r.column_name || '').toLowerCase().includes(q);
+      const matchTag = !tag || r.pii_tags.includes(tag);
+      return matchQ && matchTag;
+    });
+    const header = 'source,schema,table,column,pii_tags\n';
+    const csv = rows.map(r =>
+      `"${r.source_name}","${r.schema_name}","${r.table_name}","${r.column_name || ''}","${r.pii_tags.join(';')}"`
+    ).join('\n');
+    const blob = new Blob([header + csv], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'pii_report.csv';
+    a.click();
+    toast('CSV exported', 'success');
+  }
+</script>
+</body>
+</html>

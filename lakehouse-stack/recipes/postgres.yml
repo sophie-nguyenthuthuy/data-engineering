@@ -1,0 +1,11 @@
+source:
+  type: postgres
+  config:
+    host_port: localhost:5432
+    database: de_db
+    username: de_user
+    password: de_password
+sink:
+  type: datahub-rest
+  config:
+    server: http://localhost:8080

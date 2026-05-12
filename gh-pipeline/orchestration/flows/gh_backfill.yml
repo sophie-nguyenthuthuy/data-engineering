@@ -1,0 +1,61 @@
+id: gh_backfill
+namespace: gh_pipeline
+description: |
+  Backfill a date range of GH Archive through dlt, then run dbt and the Spark rollup.
+  Trigger from the Kestra UI or `make kestra-trigger FLOW=gh_backfill`.
+
+inputs:
+  - id: start_date
+    type: STRING
+    defaults: "2024-01-01"
+  - id: end_date
+    type: STRING
+    defaults: "2024-01-07"
+
+tasks:
+
+  - id: ingest
+    type: io.kestra.plugin.scripts.python.Commands
+    description: "dlt — GH Archive hourly dumps → BQ gh_raw.events"
+    namespaceFiles:
+      enabled: true
+    docker:
+      image: python:3.11-slim
+    beforeCommands:
+      - pip install -q -r /app/flows/../../ingestion/requirements.txt
+    env:
+      GOOGLE_APPLICATION_CREDENTIALS: /app/flows/../../infra/terraform/sa-key.json
+      BQ_DATASET_RAW: "{{ vars.bq_dataset_raw }}"
+    commands:
+      - python /app/flows/../../ingestion/dlt_batch.py
+        --start {{ inputs.start_date }}
+        --end   {{ inputs.end_date }}
+
+  - id: dbt_run
+    type: io.kestra.plugin.dbt.cli.DbtCLI
+    description: "dbt — build staging + marts over the freshly ingested window"
+    runner: DOCKER
+    docker:
+      image: ghcr.io/dbt-labs/dbt-bigquery:1.7.latest
+    projectDir: /app/flows/../../analytics
+    commands:
+      - dbt build --vars '{"start_date": "{{ inputs.start_date }}", "end_date": "{{ inputs.end_date }}"}'
+
+  - id: spark_rollup
+    type: io.kestra.plugin.scripts.shell.Commands
+    description: "Spark — heavy daily rollups that would be painful in SQL"
+    commands:
+      - docker exec gh-pipeline-spark-master-1
+          spark-submit --master spark://spark-master:7077
+          /opt/jobs/daily_rollups.py
+          --start {{ inputs.start_date }}
+          --end   {{ inputs.end_date }}
+
+triggers:
+  # Run yesterday's data every day at 02:00 UTC.
+  - id: daily
+    type: io.kestra.plugin.core.trigger.Schedule
+    cron: "0 2 * * *"
+    inputs:
+      start_date: "{{ now() | dateAdd(-1, 'DAYS') | date('yyyy-MM-dd') }}"
+      end_date:   "{{ now() | dateAdd(-1, 'DAYS') | date('yyyy-MM-dd') }}"

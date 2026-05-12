@@ -1,0 +1,75 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-compose:
+    name: docker compose config
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Render .env for compose parsing
+        run: cp .env.example .env
+      - name: Validate compose file
+        run: docker compose config -q
+
+  dbt-parse:
+    name: dbt parse + compile
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: analytics
+          POSTGRES_PASSWORD: ci_password
+          POSTGRES_DB: analytics
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U analytics"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      ANALYTICS_DB_PASSWORD: ci_password
+      DBT_PROFILES_DIR: ${{ github.workspace }}/dbt
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install dbt
+        run: pip install dbt-core==1.8.7 dbt-postgres==1.8.2
+      - name: Seed minimal schema
+        run: |
+          PGPASSWORD=ci_password psql -h localhost -U analytics -d analytics <<'SQL'
+          CREATE SCHEMA IF NOT EXISTS raw;
+          CREATE TABLE raw.customers (id bigint, email text, full_name text, country text, created_at timestamptz, updated_at timestamptz, _ingested_at timestamptz, _payload jsonb);
+          CREATE TABLE raw.products  (id bigint, sku text, name text, category text, price_cents int, updated_at timestamptz, _ingested_at timestamptz, _payload jsonb);
+          CREATE TABLE raw.orders    (id bigint, customer_id bigint, product_id bigint, quantity int, amount_cents int, status text, ordered_at timestamptz, updated_at timestamptz, _ingested_at timestamptz, _payload jsonb);
+          SQL
+      - name: dbt deps
+        working-directory: dbt
+        run: dbt deps
+      - name: dbt parse (sed host to localhost for CI)
+        working-directory: dbt
+        run: |
+          sed -i 's/host: postgres/host: localhost/' profiles.yml
+          dbt parse
+      - name: dbt compile
+        working-directory: dbt
+        run: dbt compile
+
+  lint-python:
+    name: ruff
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install ruff==0.6.9
+      - run: ruff check airflow/dags mock_api

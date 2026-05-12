@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=75,<81", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "re-pipeline"
+version = "0.1.0"
+description = "Practical data engineering 2026: dlt + Iceberg + DuckDB + Dagster + Streamlit."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.12"
+authors = [{ name = "Thuy Nguyen" }]
+classifiers = [
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3.12",
+  "Operating System :: OS Independent",
+]
+dynamic = ["dependencies"]
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP", "B"]
+ignore = ["E501"]

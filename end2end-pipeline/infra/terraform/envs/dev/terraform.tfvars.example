@@ -1,0 +1,16 @@
+# Copy to `terraform.tfvars` (gitignored) and fill in.
+region       = "us-east-1"
+name_prefix  = "end2end-dev"
+github_owner = "your-gh-org-or-user"
+github_repo  = "end2end-pipeline"
+
+# Narrow which refs can assume the GHA roles. Leave empty to default to
+# "main branch + any PR on this repo".
+# gha_allowed_refs = [
+#   "repo:your-gh-org/end2end-pipeline:ref:refs/heads/main",
+#   "repo:your-gh-org/end2end-pipeline:environment:dev",
+# ]
+
+# AWS SSO user / group IDs (NOT IAM ARNs) mapped to Grafana admin. Find them
+# in AWS Identity Center → Users / Groups.
+# grafana_admin_sso_ids = ["94482498-90a1-70f1-abc1-abc1abc1abc1"]

@@ -1,0 +1,40 @@
+# Promtail — scrapes Docker container stdout/stderr via the Docker engine
+# socket and ships to Loki. This is the logging path for containers we do
+# NOT instrument through OTel (Kafka, Connect, Schema Registry, ClickHouse,
+# MinIO). Our Python services ALSO log here via stdout, which gives Loki
+# two views of their logs: OTel-shipped (with trace_id) and raw stdout.
+
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: docker
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 10s
+    relabel_configs:
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/(.*)'
+        target_label: container
+      - source_labels: ['__meta_docker_container_label_com_docker_compose_service']
+        target_label: service
+      - source_labels: ['__meta_docker_container_label_com_docker_compose_project']
+        target_label: project
+    pipeline_stages:
+      # Parse JSON lines produced by structlog (producer/api/orchestrator).
+      # Best-effort — non-JSON lines pass through untouched.
+      - json:
+          expressions:
+            level: level
+            event: event
+            trace_id: trace_id
+            span_id: span_id
+      - labels:
+          level:

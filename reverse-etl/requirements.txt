@@ -1,0 +1,31 @@
+# Core
+python-dotenv>=1.0.0
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+pyyaml>=6.0.1
+click>=8.1.7
+rich>=13.7.0
+
+# Scheduling
+APScheduler>=3.10.4
+
+# API / Webhooks
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+
+# Sources
+psycopg2-binary>=2.9.9        # PostgreSQL
+google-cloud-bigquery>=3.14.0 # BigQuery
+snowflake-connector-python>=3.6.0  # Snowflake
+
+# Destinations
+slack-sdk>=3.26.1             # Slack
+sendgrid>=6.11.0              # Email (SendGrid)
+simple-salesforce>=1.12.5     # Salesforce
+hubspot-api-client>=8.2.1     # HubSpot
+
+# Dev / Test
+pytest>=7.4.4
+pytest-asyncio>=0.23.3
+pytest-mock>=3.12.0
+httpx>=0.26.0

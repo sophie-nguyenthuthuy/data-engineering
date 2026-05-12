@@ -1,0 +1,49 @@
+name: opportunity_salesforce_sync
+description: "Upsert closed-won deals from the warehouse into Salesforce Opportunities"
+enabled: true
+
+source:
+  type: bigquery
+  query: |
+    SELECT
+      deal_id,
+      account_name,
+      deal_name,
+      close_date,
+      CAST(amount AS STRING) AS Amount,
+      owner_email,
+      stage
+    FROM `my-gcp-project.analytics.closed_deals`
+    WHERE
+      stage = 'Closed Won'
+      AND close_date = DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY);
+
+destination:
+  type: salesforce
+  params:
+    object_name: Opportunity
+    operation: upsert
+    external_id_field: deal_id__c
+    batch_size: 200
+  field_mappings:
+    - source: deal_id
+      destination: deal_id__c
+    - source: deal_name
+      destination: Name
+    - source: account_name
+      destination: AccountName__c
+    - source: close_date
+      destination: CloseDate
+      transform: str
+    - source: Amount
+      destination: Amount
+    - source: stage
+      destination: StageName
+
+schedule:
+  type: cron
+  cron: "30 6 * * *"   # 06:30 UTC daily
+
+trigger:
+  type: webhook
+  path: /trigger/opportunity_salesforce_sync

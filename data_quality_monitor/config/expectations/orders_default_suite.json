@@ -1,0 +1,64 @@
+{
+  "expectation_suite_name": "orders_default_suite",
+  "expectations": [
+    {
+      "expectation_type": "expect_table_row_count_to_be_between",
+      "kwargs": { "min_value": 1, "max_value": 1000000 },
+      "meta": { "notes": "Batch must not be empty and not exceed 1M rows" }
+    },
+    {
+      "expectation_type": "expect_column_to_exist",
+      "kwargs": { "column": "order_id" }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": { "column": "order_id" }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_unique",
+      "kwargs": { "column": "order_id" }
+    },
+    {
+      "expectation_type": "expect_column_to_exist",
+      "kwargs": { "column": "customer_id" }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": { "column": "customer_id" }
+    },
+    {
+      "expectation_type": "expect_column_to_exist",
+      "kwargs": { "column": "amount" }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": { "column": "amount" }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_between",
+      "kwargs": { "column": "amount", "min_value": 0.01, "max_value": 1000000 }
+    },
+    {
+      "expectation_type": "expect_column_to_exist",
+      "kwargs": { "column": "status" }
+    },
+    {
+      "expectation_type": "expect_column_values_to_be_in_set",
+      "kwargs": {
+        "column": "status",
+        "value_set": ["pending", "confirmed", "shipped", "delivered", "cancelled"]
+      }
+    },
+    {
+      "expectation_type": "expect_column_to_exist",
+      "kwargs": { "column": "created_at" }
+    },
+    {
+      "expectation_type": "expect_column_values_to_not_be_null",
+      "kwargs": { "column": "created_at" }
+    }
+  ],
+  "meta": {
+    "great_expectations_version": "0.18.x"
+  }
+}

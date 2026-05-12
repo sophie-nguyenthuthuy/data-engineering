@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Data Catalog — Assets</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+</head>
+<body>
+<div class="layout">
+  <nav class="sidebar">
+    <div class="logo">Data<span>Catalog</span></div>
+    <a href="/" class="nav-item">⬡ &nbsp;Dashboard</a>
+    <a href="/assets" class="nav-item active">🗄 &nbsp;Assets</a>
+    <a href="/lineage" class="nav-item">🔗 &nbsp;Lineage</a>
+    <a href="/pii" class="nav-item">🔒 &nbsp;PII Report</a>
+    <a href="/docs" class="nav-item" target="_blank">📖 &nbsp;API Docs</a>
+  </nav>
+
+  <main class="main">
+    <div class="topbar">
+      <div>
+        <h1>Asset Browser</h1>
+        <div class="sub">Explore schemas, tables, and columns</div>
+      </div>
+    </div>
+
+    <!-- Search -->
+    <div class="search-wrap">
+      <span style="color:var(--text-muted)">🔍</span>
+      <input id="search-input" placeholder="Search tables and columns…" oninput="doSearch(this.value)" />
+      <label style="color:var(--text-muted);font-size:12px;white-space:nowrap">
+        <input type="checkbox" id="pii-filter" onchange="doSearch(document.getElementById('search-input').value)" />
+        PII only
+      </label>
+    </div>
+
+    <div id="search-results" style="display:none" class="card mt-16" style="margin-bottom:24px"></div>
+
+    <!-- Two-panel layout -->
+    <div class="grid-2">
+      <!-- Left: source/schema/table tree -->
+      <div>
+        <div class="card">
+          <div style="font-size:13px;font-weight:700;color:var(--text-muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px">Sources</div>
+          <div id="source-tree"><div class="loader">Loading…</div></div>
+        </div>
+      </div>
+
+      <!-- Right: columns panel -->
+      <div>
+        <div class="card" id="col-card">
+          <div id="col-panel-content">
+            <div class="empty">← Select a table to see its columns</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div id="toast-container"></div>
+<script src="/static/app.js"></script>
+<script>
+  let selectedTableId = null;
+
+  // Pre-select source from query param
+  const urlSource = new URLSearchParams(location.search).get('source');
+
+  loadTree();
+
+  async function loadTree() {
+    const sources = await apiFetch('/api/sources');
+    const tree = document.getElementById('source-tree');
+    if (!sources.length) { tree.innerHTML = '<div class="empty">No sources. <a href="/">Add one</a>.</div>'; return; }
+    tree.innerHTML = sources.map(src => `
+      <div class="tree-source">
+        <div class="tree-source-header ${urlSource == src.id ? 'open' : ''}" onclick="toggleSource(this, ${src.id})">
+          <span class="chevron">▶</span>
+          <strong>${src.name}</strong>
+          <span class="tag tag-info" style="margin-left:auto">${src.engine_type}</span>
+        </div>
+        <div class="tree-source-body ${urlSource == src.id ? 'open' : ''}" id="src-body-${src.id}">
+          <div class="loader" id="src-loading-${src.id}">Loading schemas…</div>
+        </div>
+      </div>`).join('');
+
+    // Auto-expand pre-selected source
+    if (urlSource) loadSchemas(urlSource);
+  }
+
+  async function toggleSource(el, srcId) {
+    el.classList.toggle('open');
+    const body = document.getElementById(`src-body-${srcId}`);
+    body.classList.toggle('open');
+    if (body.classList.contains('open') && body.querySelector('.loader')) {
+      loadSchemas(srcId);
+    }
+  }
+
+  async function loadSchemas(srcId) {
+    const schemas = await apiFetch(`/api/sources/${srcId}/schemas`);
+    const body = document.getElementById(`src-body-${srcId}`);
+    if (!schemas.length) { body.innerHTML = '<div style="padding:8px 12px;color:var(--text-muted);font-size:12px">No schemas (run a scan first)</div>'; return; }
+    body.innerHTML = schemas.map(sc => `
+      <div class="tree-schema">
+        <div class="tree-schema-header" onclick="this.nextElementSibling.classList.toggle('open')">
+          <span style="opacity:.5">▸</span> ${sc.name}
+          <span style="margin-left:auto;color:var(--text-muted);font-size:11px">${sc.tables.length} tables</span>
+        </div>
+        <div class="tree-table-list" style="display:none" class="">
+          ${sc.tables.length ? sc.tables.map(t => `
+            <div class="tree-table-item" id="tbl-item-${t.id}" onclick="selectTable(${t.id}, this)">
+              <span>${t.name}</span>
+              <span style="display:flex;gap:4px;align-items:center">
+                ${t.columns.some(c => c.pii_tags.length) ? '<span class="tag tag-pii" style="font-size:10px">PII</span>' : ''}
+                <span style="color:var(--text-muted);font-size:11px">${t.row_count != null ? t.row_count.toLocaleString() + ' rows' : ''}</span>
+              </span>
+            </div>`).join('') : '<div style="padding:6px 12px;color:var(--text-muted);font-size:12px">No tables</div>'}
+        </div>
+      </div>`).join('');
+
+    // Open all schema lists by default
+    body.querySelectorAll('.tree-table-list').forEach(el => el.style.display = 'block');
+  }
+
+  async function selectTable(id, el) {
+    document.querySelectorAll('.tree-table-item').forEach(e => e.classList.remove('selected'));
+    el.classList.add('selected');
+    selectedTableId = id;
+
+    const tbl = await apiFetch(`/api/tables/${id}`);
+    const content = document.getElementById('col-panel-content');
+
+    const piiCols = tbl.columns.filter(c => c.pii_tags.length);
+    content.innerHTML = `
+      <div class="flex-row" style="margin-bottom:16px">
+        <div>
+          <div style="font-size:16px;font-weight:700">${tbl.name}</div>
+          <div style="color:var(--text-muted);font-size:12px">${tbl.row_count != null ? tbl.row_count.toLocaleString() + ' rows' : ''} · ${tbl.columns.length} columns · ${piiCols.length} PII</div>
+        </div>
+        <button class="btn btn-outline btn-sm ml-auto" onclick='window.location="/lineage?table=${id}"'>View Lineage →</button>
+      </div>
+      <div class="col-panel">
+        ${tbl.columns.map(c => `
+          <div class="col-row">
+            <div>
+              <div class="col-name">
+                ${c.is_primary_key ? '🔑 ' : ''}${c.name}
+              </div>
+              <div class="col-type">${c.data_type || 'UNKNOWN'} · ${c.is_nullable ? 'nullable' : 'not null'}</div>
+              ${c.sample_values.length ? `<div style="color:var(--text-muted);font-size:11px;margin-top:2px">e.g. ${c.sample_values.slice(0,3).join(', ')}</div>` : ''}
+            </div>
+            <div class="col-tags">
+              ${c.pii_tags.map(tag => `<span class="tag ${tag === 'PII' ? 'tag-pii' : 'tag-warn'}">${tag}</span>`).join('')}
+            </div>
+          </div>`).join('')}
+      </div>`;
+  }
+
+  let searchDebounce;
+  async function doSearch(q) {
+    clearTimeout(searchDebounce);
+    const panel = document.getElementById('search-results');
+    if (!q.trim()) { panel.style.display = 'none'; return; }
+    searchDebounce = setTimeout(async () => {
+      const piiOnly = document.getElementById('pii-filter').checked;
+      const results = await apiFetch(`/api/search?q=${encodeURIComponent(q)}&pii_only=${piiOnly}`);
+      panel.style.display = 'block';
+      if (!results.length) { panel.innerHTML = '<div class="empty">No results</div>'; return; }
+      panel.innerHTML = `
+        <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:10px">${results.length} RESULTS</div>
+        ${results.map(r => `
+          <div style="padding:8px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px">
+            <span class="tag tag-neutral">${r.type}</span>
+            <span style="font-size:12px;color:var(--text-muted)">${r.source_name} › ${r.schema_name}</span>
+            <span style="font-weight:600">${r.table_name}${r.column_name ? '.' + r.column_name : ''}</span>
+            <span style="margin-left:auto;display:flex;gap:4px">
+              ${r.pii_tags.map(t => `<span class="tag ${t === 'PII' ? 'tag-pii' : 'tag-warn'}">${t}</span>`).join('')}
+            </span>
+          </div>`).join('')}`;
+    }, 300);
+  }
+</script>
+</body>
+</html>

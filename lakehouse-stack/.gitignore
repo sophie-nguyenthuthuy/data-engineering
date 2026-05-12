@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Great Expectations — uncommitted state (validation results, data docs).
+# Keep gx/expectations/ and gx/checkpoints/ tracked: they're code-as-config.
+gx/uncommitted/
+
+# Feast feature store materialized state
+feast_env/
+feature_repo/feature_repo/data/online_store.db
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+
+# Local Docker overrides
+docker-compose.override.yml
+
+# Logs
+*.log
+logs/
+
+# Claude worktrees (local-only working dirs)
+.claude/worktrees/

@@ -1,0 +1,38 @@
+# Kestra-shaped DAG: sequential tasks with retry policy
+id: email_triage
+namespace: triage
+description: Gmail -> PubSub -> Claude classify -> BigQuery -> Slack
+
+tenants:
+  - id: acme
+    name: Acme Corp
+    slack_channel: "#acme-ops"
+    labels: [billing, support, sales, spam]
+  - id: globex
+    name: Globex Ltd
+    slack_channel: "#globex-inbox"
+    labels: [urgent, legal, hr, spam]
+
+processing:
+  model: claude-haiku-4-5-20251001
+  temperature: 0.0
+  max_retries: 3
+  backoff_base_seconds: 0.5
+  batch_size: 10
+
+streaming:
+  ingest_topic: emails.ingested
+  dlq_topic: emails.dlq
+  ack_deadline_seconds: 30
+
+scheduling:
+  ingest_interval_seconds: 20
+  worker_poll_seconds: 2
+
+dashboard:
+  host: 127.0.0.1
+  port: 8899
+
+auth:
+  jwt_secret: dev-secret-change-me
+  token_ttl_hours: 24

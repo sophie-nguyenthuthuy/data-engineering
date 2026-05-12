@@ -1,0 +1,49 @@
+name: high_value_leads_hubspot
+description: "Sync high-value trial signups from the data warehouse into HubSpot contacts"
+enabled: true
+
+source:
+  type: postgres
+  query: |
+    SELECT
+      email,
+      first_name,
+      last_name,
+      company,
+      ROUND(estimated_arr, 2)  AS estimated_arr,
+      trial_started_at::date   AS trial_start_date,
+      signup_source
+    FROM leads
+    WHERE
+      estimated_arr >= 10000
+      AND trial_started_at >= NOW() - INTERVAL '7 days'
+      AND synced_to_hubspot = FALSE;
+
+destination:
+  type: hubspot
+  params:
+    object_type: contacts
+    id_property: email
+    batch_size: 100
+  field_mappings:
+    - source: first_name
+      destination: firstname
+    - source: last_name
+      destination: lastname
+    - source: email
+      destination: email
+    - source: company
+      destination: company
+    - source: estimated_arr
+      destination: estimated_arr__c
+      transform: str
+    - source: trial_start_date
+      destination: trial_start_date
+      transform: str
+    - source: signup_source
+      destination: lead_source
+      transform: lower
+
+schedule:
+  type: interval
+  seconds: 3600   # every hour

@@ -1,0 +1,101 @@
+{
+  "title": "Pipeline — Overview",
+  "uid": "pipeline-overview",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "time": {"from": "now-30m", "to": "now"},
+  "refresh": "10s",
+  "tags": ["pipeline"],
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Producer: events sent /s",
+      "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "sum by (service_name) (rate(producer_events_sent_total[1m]))",
+          "legendFormat": "{{service_name}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "evts/s"}}
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "API: request rate /s",
+      "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "sum by (http_route) (rate(http_server_request_duration_seconds_count{service_name=\"api\"}[1m]))",
+          "legendFormat": "{{http_route}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "reqps"}}
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "API: p95 latency",
+      "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, http_route) (rate(http_server_request_duration_seconds_bucket{service_name=\"api\"}[5m])))",
+          "legendFormat": "{{http_route}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "s"}}
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Producer: errors /s",
+      "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "sum(rate(producer_delivery_failed_total[5m]))",
+          "legendFormat": "delivery failed",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "ops"}}
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Orchestrator: Dagster asset duration (p95)",
+      "gridPos": {"x": 0, "y": 16, "w": 12, "h": 8},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, asset_key) (rate(dagster_asset_duration_seconds_bucket[10m])))",
+          "legendFormat": "{{asset_key}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "s"}}
+    },
+    {
+      "id": 6,
+      "type": "logs",
+      "title": "Recent errors (all services)",
+      "gridPos": {"x": 12, "y": 16, "w": 12, "h": 8},
+      "datasource": {"type": "loki", "uid": "loki"},
+      "targets": [
+        {
+          "expr": "{service=~\"producer|api|dagster\"} | json | level=\"error\"",
+          "refId": "A"
+        }
+      ],
+      "options": {"showTime": true, "wrapLogMessage": true}
+    }
+  ]
+}

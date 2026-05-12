@@ -1,0 +1,59 @@
+[
+  {
+    "name": "security_cve_in_prod_dep",
+    "input": {
+      "repo_full_name": "acme/payments-api",
+      "subject_type": "Issue",
+      "subject_title": "CVE-2025-1234: RCE in urllib3 affecting prod",
+      "reason": "security_alert",
+      "body": "Dependabot found urllib3 1.26.5 has a remote-code-execution vulnerability. Our production API pins 1.26.5. Upgrade to 1.26.19."
+    },
+    "expect": {
+      "priority_min": 5,
+      "sentiment_any_of": ["negative", "mixed", "neutral"],
+      "summary_must_mention_any": ["CVE", "urllib3", "vulnerability", "security"]
+    }
+  },
+  {
+    "name": "review_requested_on_my_pr",
+    "input": {
+      "repo_full_name": "acme/web",
+      "subject_type": "PullRequest",
+      "subject_title": "Add dark-mode toggle",
+      "reason": "review_requested",
+      "body": "Please review. Adds a toggle in Settings. Tests included."
+    },
+    "expect": {
+      "priority_min": 4,
+      "summary_must_mention_any": ["review", "dark mode", "toggle"]
+    }
+  },
+  {
+    "name": "noise_release_of_watched_repo",
+    "input": {
+      "repo_full_name": "some-org/that-tool",
+      "subject_type": "Release",
+      "subject_title": "v1.4.2",
+      "reason": "subscribed",
+      "body": "Patch release. Minor doc fixes."
+    },
+    "expect": {
+      "priority_max": 2,
+      "sentiment_any_of": ["neutral", "positive"]
+    }
+  },
+  {
+    "name": "ci_failed_on_my_pr",
+    "input": {
+      "repo_full_name": "acme/api",
+      "subject_type": "PullRequest",
+      "subject_title": "Fix pagination bug",
+      "reason": "ci_activity",
+      "body": "CI failed on integration-tests: test_paginate_next_page AssertionError. 3 jobs green, 1 red."
+    },
+    "expect": {
+      "priority_min": 4,
+      "summary_must_mention_any": ["CI", "test", "fail"]
+    }
+  }
+]

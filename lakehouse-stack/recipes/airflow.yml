@@ -1,0 +1,41 @@
+# NOTE: DataHub does NOT ship a pull-based source named `airflow`.
+# Lineage from Airflow flows in PUSH mode via `acryl-datahub-airflow-plugin`,
+# which is installed in the Airflow containers (see docker-compose.yml) and
+# emits dataset lineage at task runtime from `inlets`/`outlets` annotations
+# (see airflow/dags/lab13_pipeline.py).
+#
+# To produce Airflow lineage in DataHub:
+#   1. docker compose up -d --force-recreate \
+#         airflow-init airflow-webserver airflow-scheduler
+#   2. Trigger the DAG (UI http://localhost:8085 or CLI):
+#         docker exec --user airflow de_airflow_webserver \
+#           airflow dags trigger lab13_end_to_end_pipeline
+#   3. Open DataHub → Pipelines → Airflow → lab13_end_to_end_pipeline →
+#      Lineage tab.
+#
+# The recipe below is an OPTIONAL fallback. It crawls Airflow's metadata DB
+# (Postgres on host port 5434) as a generic Postgres source so DataHub shows
+# the `dag`, `dag_run`, `task_instance` tables. It does NOT produce DAG-level
+# lineage — use it only for inspecting the Airflow scheduler's own state.
+
+source:
+  type: postgres
+  config:
+    host_port: localhost:5434
+    database: airflow
+    username: airflow
+    password: airflow
+    schema_pattern:
+      allow:
+        - "^public$"
+    table_pattern:
+      allow:
+        - "public\\.dag$"
+        - "public\\.dag_run$"
+        - "public\\.task_instance$"
+    platform_instance: airflow_metadata_db
+
+sink:
+  type: datahub-rest
+  config:
+    server: http://localhost:8080

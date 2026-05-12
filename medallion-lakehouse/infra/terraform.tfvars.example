@@ -1,0 +1,12 @@
+environment            = "dev"
+location               = "westeurope"
+project                = "medallion"
+databricks_account_id  = "00000000-0000-0000-0000-000000000000"
+metastore_id           = "00000000-0000-0000-0000-000000000000"
+admin_group_name       = "lakehouse-admins"
+allowed_cidrs          = []
+
+tags = {
+  owner       = "data-platform"
+  cost_center = "DP-001"
+}

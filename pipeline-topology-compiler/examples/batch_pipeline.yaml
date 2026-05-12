@@ -1,0 +1,59 @@
+pipeline:
+  name: ecommerce_daily_stats
+  description: "Daily order statistics aggregated by customer segment and region"
+
+  sla:
+    max_latency: "6h"
+    dataset_size: "80gb"
+
+  sources:
+    - name: orders
+      format: parquet
+      location: /data/raw/orders
+      schema:
+        - {name: order_id,     type: string,    nullable: false}
+        - {name: customer_id,  type: string,    nullable: false}
+        - {name: amount,       type: double,    nullable: false}
+        - {name: status,       type: string,    nullable: true}
+        - {name: created_at,   type: timestamp, nullable: false}
+
+    - name: customers
+      format: parquet
+      location: /data/raw/customers
+      schema:
+        - {name: customer_id, type: string, nullable: false}
+        - {name: segment,     type: string, nullable: true}
+        - {name: region,      type: string, nullable: true}
+
+  transforms:
+    - name: completed_orders
+      type: filter
+      inputs: [orders]
+      predicate: "status == 'completed'"
+
+    - name: orders_with_customer
+      type: join
+      inputs: [completed_orders, customers]
+      join_type: inner
+      on: "completed_orders.customer_id == customers.customer_id"
+
+    - name: daily_segment_stats
+      type: aggregate
+      inputs: [orders_with_customer]
+      group_by: [segment, region]
+      aggregations:
+        - {name: total_orders,      function: count, column: order_id}
+        - {name: total_revenue,     function: sum,   column: amount}
+        - {name: avg_order_value,   function: avg,   column: amount}
+        - {name: max_order_value,   function: max,   column: amount}
+
+    - name: final_report
+      type: select
+      inputs: [daily_segment_stats]
+      columns: [segment, region, total_orders, total_revenue, avg_order_value]
+
+  sink:
+    name: customer_segment_daily_stats
+    input: final_report
+    format: parquet
+    location: /data/output/customer_segment_daily_stats

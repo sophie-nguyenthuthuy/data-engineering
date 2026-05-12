@@ -1,0 +1,43 @@
+[project]
+name = "orchestrator"
+version = "0.1.0"
+description = "Dagster assets + jobs for the end2end pipeline (ingest → PySpark analysis → ClickHouse report)."
+requires-python = ">=3.12"
+dependencies = [
+  "dagster==1.9.5",
+  "dagster-webserver==1.9.5",
+  "pyspark==3.5.3",
+  "clickhouse-connect==0.8.1",
+  "pyarrow==17.0.0",
+  "boto3==1.35.35",
+  "confluent-kafka==2.5.3",
+  "structlog==24.4.0",
+  "opentelemetry-api==1.27.0",
+  "opentelemetry-sdk==1.27.0",
+  "opentelemetry-exporter-otlp-proto-grpc==1.27.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest==8.3.3",
+  "ruff==0.6.9",
+  "mypy==1.11.2",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true

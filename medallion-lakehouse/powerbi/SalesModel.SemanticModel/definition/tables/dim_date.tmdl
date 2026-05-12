@@ -1,0 +1,62 @@
+table dim_date
+	lineageTag: dim-date-0001
+	dataCategory: Time
+
+	column date_sk
+		dataType: int64
+		sourceColumn: date_sk
+		summarizeBy: none
+		isKey
+		isHidden
+
+	column date
+		dataType: dateTime
+		sourceColumn: date
+		summarizeBy: none
+		formatString: yyyy-mm-dd
+		isUnique
+
+	column year
+		dataType: int64
+		sourceColumn: year
+		summarizeBy: none
+
+	column quarter
+		dataType: int64
+		sourceColumn: quarter
+		summarizeBy: none
+
+	column month
+		dataType: int64
+		sourceColumn: month
+		summarizeBy: none
+
+	column month_name
+		dataType: string
+		sourceColumn: month_name
+		summarizeBy: none
+		sortByColumn: month
+
+	column day_name
+		dataType: string
+		sourceColumn: day_name
+		summarizeBy: none
+		sortByColumn: day_of_week
+
+	column day_of_week
+		dataType: int64
+		sourceColumn: day_of_week
+		summarizeBy: none
+		isHidden
+
+	column is_weekend
+		dataType: boolean
+		sourceColumn: is_weekend
+		summarizeBy: none
+
+	partition dim_date-partition = entity
+		mode: directLake
+		source
+			entityName: dim_date
+			schemaName: gold
+			expressionSource: 'Sales Lakehouse'

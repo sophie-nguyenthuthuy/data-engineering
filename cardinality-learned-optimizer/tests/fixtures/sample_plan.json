@@ -1,0 +1,53 @@
+[
+  {
+    "Plan": {
+      "Node Type": "Hash Join",
+      "Join Type": "Inner",
+      "Startup Cost": 10.50,
+      "Total Cost": 1234.56,
+      "Plan Rows": 5000,
+      "Plan Width": 48,
+      "Hash Cond": "(ci.movie_id = t.id)",
+      "Actual Rows": 42,
+      "Actual Loops": 1,
+      "Plans": [
+        {
+          "Node Type": "Seq Scan",
+          "Relation Name": "cast_info",
+          "Alias": "ci",
+          "Startup Cost": 0.00,
+          "Total Cost": 800.00,
+          "Plan Rows": 50000,
+          "Plan Width": 24,
+          "Actual Rows": 45000,
+          "Actual Loops": 1,
+          "Filter": "(role_id = 1)"
+        },
+        {
+          "Node Type": "Hash",
+          "Startup Cost": 5.00,
+          "Total Cost": 5.00,
+          "Plan Rows": 100,
+          "Plan Width": 24,
+          "Actual Rows": 95,
+          "Actual Loops": 1,
+          "Plans": [
+            {
+              "Node Type": "Index Scan",
+              "Relation Name": "title",
+              "Alias": "t",
+              "Index Name": "title_pkey",
+              "Startup Cost": 0.43,
+              "Total Cost": 4.57,
+              "Plan Rows": 100,
+              "Plan Width": 24,
+              "Actual Rows": 95,
+              "Actual Loops": 1,
+              "Filter": "(production_year > 2000)"
+            }
+          ]
+        }
+      ]
+    }
+  }
+]

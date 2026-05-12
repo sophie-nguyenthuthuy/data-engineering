@@ -1,0 +1,97 @@
+{
+  "title": "Pipeline — Kafka & Connect",
+  "uid": "pipeline-kafka",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "time": {"from": "now-30m", "to": "now"},
+  "refresh": "10s",
+  "tags": ["pipeline", "kafka"],
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Topic in-rate (msg/s)",
+      "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "sum by (topic) (rate(kafka_topic_partition_current_offset{topic!~\"_.*\"}[1m]))",
+          "legendFormat": "{{topic}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "ops"}}
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Consumer group lag (msgs)",
+      "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "sum by (consumergroup, topic) (kafka_consumergroup_lag)",
+          "legendFormat": "{{consumergroup}} / {{topic}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "short"}}
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "DLQ size (msgs)",
+      "gridPos": {"x": 0, "y": 8, "w": 6, "h": 6},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "sum(kafka_topic_partition_current_offset{topic=~\".*-dlq\"} - on(topic, partition) kafka_topic_partition_oldest_offset{topic=~\".*-dlq\"})",
+          "legendFormat": "dlq",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Brokers up",
+      "gridPos": {"x": 6, "y": 8, "w": 6, "h": 6},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "count(kafka_brokers)",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Partition count by topic",
+      "gridPos": {"x": 12, "y": 8, "w": 12, "h": 6},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "sum by (topic) (kafka_topic_partitions)",
+          "legendFormat": "{{topic}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "logs",
+      "title": "Kafka Connect logs",
+      "gridPos": {"x": 0, "y": 14, "w": 24, "h": 10},
+      "datasource": {"type": "loki", "uid": "loki"},
+      "targets": [
+        {
+          "expr": "{service=\"kafka-connect\"}",
+          "refId": "A"
+        }
+      ],
+      "options": {"showTime": true, "wrapLogMessage": true}
+    }
+  ]
+}

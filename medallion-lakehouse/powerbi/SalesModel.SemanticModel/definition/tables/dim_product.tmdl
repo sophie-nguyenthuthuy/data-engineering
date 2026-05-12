@@ -1,0 +1,32 @@
+table dim_product
+	lineageTag: dim-product-0001
+
+	column product_sk
+		dataType: string
+		sourceColumn: product_sk
+		summarizeBy: none
+		isKey
+		isHidden
+
+	column product_id
+		dataType: string
+		sourceColumn: product_id
+		summarizeBy: none
+
+	column category
+		dataType: string
+		sourceColumn: category
+		summarizeBy: none
+
+	column unit_price
+		dataType: decimal
+		sourceColumn: unit_price
+		summarizeBy: average
+		formatString: \$#,0.00
+
+	partition dim_product-partition = entity
+		mode: directLake
+		source
+			entityName: dim_product
+			schemaName: gold
+			expressionSource: 'Sales Lakehouse'

@@ -1,0 +1,79 @@
+# ====================================================================
+# Monorepo .gitignore — excludes local artifacts that snuck in via
+# accidental commits in upstream repos. Each sub-project keeps its own
+# .gitignore for its own runtime; this file is the floor.
+# ====================================================================
+
+# ---- OS ----
+.DS_Store
+Thumbs.db
+
+# ---- Editors ----
+.idea/
+.vscode/
+*.swp
+*~
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.dylib
+*.dll
+*.egg-info/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Virtual envs — any name, any depth
+.venv/
+venv/
+env/
+ENV/
+*_env/
+*-env/
+*.venv/
+
+# ---- Node ----
+node_modules/
+dist/
+build/
+.next/
+.nuxt/
+.turbo/
+
+# ---- Data files (large / generated) ----
+*.parquet
+*.avro
+*.orc
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+*.duckdb
+*.duckdb.wal
+
+# ---- Logs / state ----
+*.log
+logs/
+.terraform/
+.terraform.lock.hcl
+terraform.tfstate*
+
+# ---- Secrets ----
+.env
+.env.*
+!.env.example
+!.env.template
+*.pem
+*.key
+credentials.json
+
+# ---- Misc ----
+.cache/
+.ipynb_checkpoints/

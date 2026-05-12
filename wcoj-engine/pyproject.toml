@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wcoj-engine"
+version = "0.1.0"
+description = "Worst-Case Optimal Join Engine: Leapfrog Triejoin, Generic Join, and cyclic query planner"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = ["numpy>=1.24"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7", "pytest-cov"]
+bench = ["matplotlib>=3.6", "pandas>=2.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["wcoj*", "benchmarks*"]

@@ -1,0 +1,45 @@
+# Prometheus — scrapes the OTel Collector's prometheus exporter (for all
+# OTLP-shipped metrics from producer/api/orchestrator) plus any service
+# that speaks Prometheus natively.
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: pipeline-dev
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # OTLP-shipped metrics from all instrumented services (producer, api,
+  # orchestrator). Each metric is labeled with `service_name` by the
+  # Collector's resource -> label conversion.
+  - job_name: otel-collector
+    static_configs:
+      - targets: ['otel-collector:8889']
+
+  # Collector's own internal metrics (queue lengths, receiver errors).
+  - job_name: otel-collector-internal
+    static_configs:
+      - targets: ['otel-collector:8888']
+
+  # ClickHouse exposes Prometheus natively (see clickhouse/prometheus.xml).
+  - job_name: clickhouse
+    static_configs:
+      - targets: ['clickhouse:9363']
+
+  # kafka-exporter — broker-protocol-level scrape for topic sizes + consumer
+  # group lag. No JMX plumbing needed.
+  - job_name: kafka
+    static_configs:
+      - targets: ['kafka-exporter:9308']
+
+  # Tempo + Loki expose their own operational metrics.
+  - job_name: tempo
+    static_configs:
+      - targets: ['tempo:3200']
+  - job_name: loki
+    static_configs:
+      - targets: ['loki:3100']

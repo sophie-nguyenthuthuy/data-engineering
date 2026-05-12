@@ -1,0 +1,13 @@
+version: 1
+description: "Migrate User v1 → v2: split name into first_name/last_name, add age"
+steps:
+  - op: split_field
+    path: "$.name"
+    params:
+      into: ["first_name", "last_name"]
+      separator: " "
+
+  - op: add_field
+    path: "$.age"
+    params:
+      default: 0

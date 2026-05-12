@@ -1,0 +1,432 @@
+# Phase 1 compose: producer -> Kafka (KRaft) -> Schema Registry -> Kafka Connect -> ClickHouse -> API -> dashboard.
+# Security (SASL/TLS), DLQ policy tuning, observability, and Dagster come in later phases.
+
+x-common-env: &common-env
+  TZ: UTC
+
+services:
+  # ---------- Kafka (KRaft, single-node) ----------
+  kafka:
+    image: bitnami/kafka:3.7.1
+    container_name: kafka
+    restart: unless-stopped
+    environment:
+      <<: *common-env
+      KAFKA_CFG_NODE_ID: 1
+      KAFKA_CFG_PROCESS_ROLES: controller,broker
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:19092
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:19092
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CFG_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_KRAFT_CLUSTER_ID: ${KAFKA_CLUSTER_ID}
+      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_CFG_NUM_PARTITIONS: "3"
+      KAFKA_CFG_DEFAULT_REPLICATION_FACTOR: "1"
+      KAFKA_CFG_MIN_INSYNC_REPLICAS: "1"
+    ports:
+      - "19092:19092"
+    volumes:
+      - kafka-data:/bitnami/kafka
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
+  kafka-init:
+    image: bitnami/kafka:3.7.1
+    container_name: kafka-init
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - |
+        set -e
+        kc=/opt/bitnami/kafka/bin/kafka-topics.sh
+        for topic in "${KAFKA_TOPIC}" "${KAFKA_DLQ_TOPIC}"; do
+          $$kc --bootstrap-server kafka:9092 --create --if-not-exists \
+            --topic $$topic --partitions 3 --replication-factor 1
+        done
+        echo "Topics ready:"
+        $$kc --bootstrap-server kafka:9092 --list
+    environment:
+      KAFKA_TOPIC: ${KAFKA_TOPIC}
+      KAFKA_DLQ_TOPIC: ${KAFKA_DLQ_TOPIC}
+    restart: "no"
+
+  # ---------- Schema Registry ----------
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.6.1
+    container_name: schema-registry
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      <<: *common-env
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: PLAINTEXT://kafka:9092
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+      SCHEMA_REGISTRY_SCHEMA_COMPATIBILITY_LEVEL: backward
+    ports:
+      - "8081:8081"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8081/subjects"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+
+  # ---------- Kafka Connect ----------
+  kafka-connect:
+    build:
+      context: ./infra/kafka-connect
+      dockerfile: Dockerfile
+    image: pipeline/kafka-connect:local
+    container_name: kafka-connect
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+      schema-registry:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    environment:
+      <<: *common-env
+      CONNECT_BOOTSTRAP_SERVERS: kafka:9092
+      CONNECT_REST_ADVERTISED_HOST_NAME: kafka-connect
+      CONNECT_REST_PORT: "8083"
+      CONNECT_GROUP_ID: pipeline-connect-cluster
+      CONNECT_CONFIG_STORAGE_TOPIC: _connect_configs
+      CONNECT_OFFSET_STORAGE_TOPIC: _connect_offsets
+      CONNECT_STATUS_STORAGE_TOPIC: _connect_statuses
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: "1"
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: "1"
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: "1"
+      CONNECT_KEY_CONVERTER: org.apache.kafka.connect.storage.StringConverter
+      CONNECT_VALUE_CONVERTER: io.confluent.connect.avro.AvroConverter
+      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      CONNECT_PLUGIN_PATH: /usr/share/java,/usr/share/confluent-hub-components
+      CONNECT_LOG4J_ROOT_LOGLEVEL: INFO
+    ports:
+      - "8083:8083"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8083/connectors"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+
+  # ---------- ClickHouse ----------
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8
+    container_name: clickhouse
+    restart: unless-stopped
+    environment:
+      <<: *common-env
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      - ./infra/clickhouse/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      # Phase 5: enable /metrics on :9363 for Prometheus scraping.
+      - ./infra/observability/clickhouse/prometheus.xml:/etc/clickhouse-server/config.d/prometheus.xml:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8123/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+
+  # ---------- Producer ----------
+  producer:
+    build:
+      context: ./services/producer
+      dockerfile: Dockerfile
+    image: pipeline/producer:local
+    container_name: producer
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+      schema-registry:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    environment:
+      <<: *common-env
+      KAFKA_BROKERS: ${KAFKA_BROKERS_INTERNAL}
+      KAFKA_TOPIC: ${KAFKA_TOPIC}
+      SCHEMA_REGISTRY_URL: ${SCHEMA_REGISTRY_URL_INTERNAL}
+      PRODUCER_EVENTS_PER_SEC: ${PRODUCER_EVENTS_PER_SEC}
+      PRODUCER_ERROR_RATE: ${PRODUCER_ERROR_RATE}
+      OTEL_SERVICE_NAME: producer
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      PYTHONUNBUFFERED: "1"
+    volumes:
+      - ./schemas:/app/schemas:ro
+
+  # ---------- API ----------
+  api:
+    build:
+      context: ./services/api
+      dockerfile: Dockerfile
+    image: pipeline/api:local
+    container_name: api
+    restart: unless-stopped
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    environment:
+      <<: *common-env
+      CLICKHOUSE_HOST: ${CLICKHOUSE_HOST}
+      CLICKHOUSE_PORT_HTTP: ${CLICKHOUSE_PORT_HTTP}
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+      CLICKHOUSE_TABLE: ${CLICKHOUSE_TABLE}
+      API_PORT: ${API_PORT}
+      OTEL_SERVICE_NAME: api
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      PYTHONUNBUFFERED: "1"
+    ports:
+      - "${API_PORT}:${API_PORT}"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,os,sys; urllib.request.urlopen(f'http://localhost:{os.environ[\"API_PORT\"]}/healthz', timeout=2); sys.exit(0)"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  # ---------- Dashboard (static nginx) ----------
+  dashboard:
+    image: nginx:1.27-alpine
+    container_name: dashboard
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "${DASHBOARD_PORT}:80"
+    volumes:
+      - ./services/dashboard/www:/usr/share/nginx/html:ro
+      - ./services/dashboard/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+
+  # ---------- MinIO (S3-compatible object store for Dagster Parquet) ----------
+  minio:
+    image: minio/minio:RELEASE.2024-10-02T17-50-41Z
+    container_name: minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      <<: *common-env
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports:
+      - "${MINIO_PORT:-9100}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  minio-init:
+    image: minio/mc:RELEASE.2024-10-02T08-27-28Z
+    container_name: minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      S3_BUCKET: ${S3_BUCKET}
+    entrypoint: ["/bin/sh"]
+    command: ["/opt/init/init.sh"]
+    volumes:
+      - ./infra/minio/init.sh:/opt/init/init.sh:ro
+    restart: "no"
+
+  # ---------- Dagster (webserver + daemon via `dagster dev`) ----------
+  dagster:
+    build:
+      context: ./services/orchestrator
+      dockerfile: Dockerfile
+    image: pipeline/orchestrator:local
+    container_name: dagster
+    restart: unless-stopped
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+      kafka-init:
+        condition: service_completed_successfully
+    environment:
+      <<: *common-env
+      DAGSTER_HOME: /opt/dagster
+      # ClickHouse (same creds as the API and producer in the dev stack).
+      CLICKHOUSE_HOST: ${CLICKHOUSE_HOST}
+      CLICKHOUSE_PORT_HTTP: ${CLICKHOUSE_PORT_HTTP}
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB}
+      CLICKHOUSE_PIPELINE_USER: ${CLICKHOUSE_USER}
+      CLICKHOUSE_PIPELINE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+      # MinIO.
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: ${MINIO_ROOT_USER}
+      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      S3_BUCKET: ${S3_BUCKET}
+      # Kafka (dev stack = PLAINTEXT, so DLQ replay just needs bootstrap + topics).
+      KAFKA_BOOTSTRAP: kafka:9092
+      KAFKA_TOPIC: ${KAFKA_TOPIC}
+      KAFKA_DLQ_TOPIC: ${KAFKA_DLQ_TOPIC}
+      KAFKA_SECURITY_PROTOCOL: PLAINTEXT
+      OTEL_SERVICE_NAME: dagster
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      PYTHONUNBUFFERED: "1"
+    ports:
+      - "${DAGSTER_PORT:-3000}:3000"
+    volumes:
+      - dagster-home:/opt/dagster
+      - ivy-cache:/root/.ivy2
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:3000/server_info"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 60s
+
+  # ================== Phase 5: Observability ==================
+
+  # ---------- OpenTelemetry Collector ----------
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.110.0
+    container_name: otel-collector
+    restart: unless-stopped
+    command: ["--config=/etc/otel/config.yaml"]
+    volumes:
+      - ./infra/observability/otel-collector.yaml:/etc/otel/config.yaml:ro
+    ports:
+      - "${OTEL_OTLP_GRPC_PORT:-4317}:4317"
+      - "${OTEL_OTLP_HTTP_PORT:-4318}:4318"
+    depends_on:
+      tempo:
+        condition: service_started
+      loki:
+        condition: service_started
+
+  # ---------- Tempo (traces) ----------
+  tempo:
+    image: grafana/tempo:2.6.0
+    container_name: tempo
+    restart: unless-stopped
+    command: ["-config.file=/etc/tempo/tempo.yaml"]
+    volumes:
+      - ./infra/observability/tempo.yaml:/etc/tempo/tempo.yaml:ro
+      - tempo-data:/var/tempo
+    ports:
+      - "${TEMPO_HTTP_PORT:-3200}:3200"
+
+  # ---------- Loki (logs) ----------
+  loki:
+    image: grafana/loki:3.2.0
+    container_name: loki
+    restart: unless-stopped
+    command: ["-config.file=/etc/loki/config.yaml"]
+    volumes:
+      - ./infra/observability/loki.yaml:/etc/loki/config.yaml:ro
+      - loki-data:/loki
+
+  # ---------- Promtail (docker log tailer -> Loki) ----------
+  promtail:
+    image: grafana/promtail:3.2.0
+    container_name: promtail
+    restart: unless-stopped
+    command: ["-config.file=/etc/promtail/config.yaml"]
+    volumes:
+      - ./infra/observability/promtail.yaml:/etc/promtail/config.yaml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      loki:
+        condition: service_started
+
+  # ---------- Prometheus (metrics) ----------
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: prometheus
+    restart: unless-stopped
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.retention.time=24h"
+    volumes:
+      - ./infra/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+
+  # ---------- kafka-exporter (topic sizes + consumer group lag) ----------
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:v1.8.0
+    container_name: kafka-exporter
+    restart: unless-stopped
+    command:
+      - "--kafka.server=kafka:9092"
+      - "--web.listen-address=:9308"
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  # ---------- Grafana ----------
+  grafana:
+    image: grafana/grafana:11.2.2
+    container_name: grafana
+    restart: unless-stopped
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_LOG_LEVEL: warn
+      GF_FEATURE_TOGGLES_ENABLE: traceqlEditor
+    volumes:
+      - ./infra/observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "${GRAFANA_PORT:-3001}:3000"
+    depends_on:
+      prometheus:
+        condition: service_started
+      tempo:
+        condition: service_started
+      loki:
+        condition: service_started
+
+volumes:
+  kafka-data:
+  clickhouse-data:
+  minio-data:
+  dagster-home:
+  ivy-cache:
+  tempo-data:
+  loki-data:
+  prometheus-data:
+  grafana-data:

@@ -1,0 +1,8 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: mlops_data_layer
+    static_configs:
+      - targets: ["mlops-data-layer:8000"]
+    metrics_path: /metrics

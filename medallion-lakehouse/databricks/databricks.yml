@@ -1,0 +1,54 @@
+bundle:
+  name: medallion-lakehouse
+
+include:
+  - resources/*.yml
+
+variables:
+  catalog:
+    description: Unity Catalog where bronze/silver/gold schemas live.
+  landing_volume:
+    description: UC volume path for landed source files.
+  notification_email:
+    description: Email for pipeline failure alerts.
+
+targets:
+  dev:
+    mode: development
+    default: true
+    workspace:
+      host: https://adb-0000000000000000.0.azuredatabricks.net
+      root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
+    variables:
+      catalog: dev_medallion
+      landing_volume: /Volumes/dev_medallion/bronze/landing
+      notification_email: data-platform-dev@example.com
+
+  staging:
+    mode: production
+    workspace:
+      host: https://adb-1111111111111111.1.azuredatabricks.net
+      root_path: /Workspace/Shared/.bundle/${bundle.name}/${bundle.target}
+    variables:
+      catalog: stg_medallion
+      landing_volume: /Volumes/stg_medallion/bronze/landing
+      notification_email: data-platform@example.com
+    run_as:
+      service_principal_name: sp-medallion-staging
+
+  prod:
+    mode: production
+    workspace:
+      host: https://adb-2222222222222222.2.azuredatabricks.net
+      root_path: /Workspace/Shared/.bundle/${bundle.name}/${bundle.target}
+    variables:
+      catalog: prod_medallion
+      landing_volume: /Volumes/prod_medallion/bronze/landing
+      notification_email: data-platform-oncall@example.com
+    run_as:
+      service_principal_name: sp-medallion-prod
+    permissions:
+      - group_name: lakehouse-admins
+        level: CAN_MANAGE
+      - group_name: data-engineers
+        level: CAN_VIEW

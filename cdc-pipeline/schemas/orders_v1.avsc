@@ -1,0 +1,19 @@
+{
+  "type": "record",
+  "name": "Order",
+  "namespace": "com.cdc.pipeline",
+  "doc": "Order record — v1",
+  "fields": [
+    {"name": "id",          "type": "int"},
+    {"name": "user_id",     "type": "int"},
+    {"name": "status",      "type": "string"},
+    {"name": "total_amount","type": "double"},
+    {"name": "currency",    "type": {"type": "string", "default": "USD"}},
+    {"name": "created_at",  "type": {"type": "long", "logicalType": "timestamp-millis"}},
+    {"name": "updated_at",  "type": {"type": "long", "logicalType": "timestamp-millis"}},
+    {"name": "__op",        "type": ["null", "string"], "default": null},
+    {"name": "__lsn",       "type": ["null", "long"],   "default": null},
+    {"name": "__ts_ms",     "type": ["null", "long"],   "default": null},
+    {"name": "__deleted",   "type": ["null", "string"], "default": null}
+  ]
+}

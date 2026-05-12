@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyc
+
+# Environment / secrets
+.env
+
+# Kafka / connector state
+*.offset
+kafka-logs/
+
+# IDE
+.idea/
+.vscode/

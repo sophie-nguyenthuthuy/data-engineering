@@ -1,0 +1,85 @@
+id: orders
+version: "1.1.0"
+producer: order-service
+consumers:
+  - analytics-team
+  - finance-reporting
+  - fulfillment-service
+owner: platform-team
+description: >
+  Daily orders snapshot — v1.1.0 adds shipping_region and
+  raises the minimum row count SLA.
+
+tags:
+  - ecommerce
+  - critical
+
+fields:
+  - name: order_id
+    type: string
+    nullable: false
+    constraints:
+      unique: true
+
+  - name: customer_id
+    type: string
+    nullable: false
+
+  - name: order_date
+    type: timestamp
+    nullable: false
+
+  - name: status
+    type: string
+    nullable: false
+    constraints:
+      allowed_values: [pending, confirmed, shipped, delivered, cancelled]
+
+  - name: total_amount
+    type: number
+    nullable: false
+    constraints:
+      min: 0.0
+      max: 100000.0
+
+  - name: item_count
+    type: integer
+    nullable: false
+    constraints:
+      min: 1
+
+  - name: discount_pct
+    type: number
+    nullable: true
+    constraints:
+      min: 0.0
+      max: 100.0
+
+  - name: shipping_region
+    type: string
+    nullable: true
+    description: Geographic region for shipping (new in v1.1.0)
+
+sla_rules:
+  - name: minimum_rows
+    rule_type: row_count
+    threshold: 500
+    description: Raised SLA — expect at least 500 orders per daily run
+
+  - name: data_completeness
+    rule_type: completeness
+    threshold: 0.98
+
+  - name: data_freshness
+    rule_type: freshness
+    threshold: 86400
+    unit: s
+
+semantic_rules:
+  - name: positive_total
+    expression: "(df['total_amount'] >= 0).all()"
+    severity: error
+
+  - name: status_distribution
+    expression: "(df['status'].value_counts(normalize=True).get('cancelled', 0) < 0.5)"
+    severity: warning

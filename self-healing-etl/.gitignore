@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.db
+*.sqlite
+*.sqlite3
+.env
+.venv/
+venv/
+env/
+dist/
+build/
+*.egg-info/
+.DS_Store
+.prefect/

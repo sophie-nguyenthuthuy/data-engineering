@@ -1,0 +1,41 @@
+{
+  "name": "clickhouse-sink",
+  "config": {
+    "connector.class": "com.clickhouse.kafka.connect.ClickHouseSinkConnector",
+    "tasks.max": "2",
+    "topics": "${env:KAFKA_TOPIC}",
+
+    "hostname": "${env:CLICKHOUSE_HOST}",
+    "port": "${env:CLICKHOUSE_PORT_HTTP}",
+    "database": "${env:CLICKHOUSE_DB}",
+    "username": "pipeline",
+    "password": "${env:CLICKHOUSE_PIPELINE_PASSWORD}",
+    "ssl": "false",
+
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "value.converter": "io.confluent.connect.avro.AvroConverter",
+    "value.converter.schema.registry.url": "${env:SCHEMA_REGISTRY_URL_INTERNAL}",
+    "value.converter.schemas.enable": "true",
+    "value.converter.basic.auth.credentials.source": "USER_INFO",
+    "value.converter.basic.auth.user.info": "connect:${env:CONNECT_SR_PASSWORD}",
+
+    "exactlyOnce": "true",
+    "schemas.enable": "true",
+
+    "errors.tolerance": "all",
+    "errors.log.enable": "true",
+    "errors.log.include.messages": "true",
+    "errors.retry.timeout": "300000",
+    "errors.retry.delay.max.ms": "30000",
+    "errors.deadletterqueue.topic.name": "${env:KAFKA_DLQ_TOPIC}",
+    "errors.deadletterqueue.topic.replication.factor": "1",
+    "errors.deadletterqueue.context.headers.enable": "true",
+
+    "producer.override.security.protocol": "SASL_SSL",
+    "producer.override.sasl.mechanism": "SCRAM-SHA-512",
+    "producer.override.sasl.jaas.config": "org.apache.kafka.common.security.scram.ScramLoginModule required username=\"connect\" password=\"${env:CONNECT_KAFKA_PASSWORD}\";",
+    "producer.override.ssl.truststore.location": "/etc/secrets/truststore.p12",
+    "producer.override.ssl.truststore.type": "PKCS12",
+    "producer.override.ssl.truststore.password": "${env:TRUSTSTORE_PASSWORD}"
+  }
+}

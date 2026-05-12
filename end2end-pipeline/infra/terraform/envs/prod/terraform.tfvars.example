@@ -1,0 +1,12 @@
+# Prod defaults keep destroy-safety on. Do NOT set force_destroy / skip_final_snapshot.
+region       = "us-east-1"
+name_prefix  = "end2end-prod"
+github_owner = "your-gh-org-or-user"
+github_repo  = "end2end-pipeline"
+
+# Restrict apply to tagged releases or the prod environment only.
+gha_allowed_refs = [
+  "repo:your-gh-org/end2end-pipeline:environment:prod",
+]
+
+# grafana_admin_sso_ids = ["…"]

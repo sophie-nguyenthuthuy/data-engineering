@@ -1,0 +1,44 @@
+reporting:
+  institution_name: "Ngân hàng Mẫu Việt Nam"
+  institution_code: "VBSP001"
+  swift_code: "VBSPVNVX"
+  reporting_currency: "VND"
+  tax_id: "0100112437"
+  address: "49 Lý Thái Tổ, Hoàn Kiếm, Hà Nội"
+
+thresholds:
+  large_value_vnd: 300_000_000       # 300M VND — mandatory STR threshold
+  large_value_usd: 10_000            # USD equivalent per SBV Circular 09/2023
+  suspicious_frequency: 10           # transactions/day flagged for review
+  reconciliation_tolerance: 0.01     # 1 VND tolerance for rounding
+
+sbv_formats:
+  date_format: "%d/%m/%Y"
+  datetime_format: "%d/%m/%Y %H:%M:%S"
+  decimal_separator: ","
+  thousands_separator: "."
+  encoding: "utf-8-sig"              # Excel-compatible UTF-8 BOM
+
+reports:
+  transaction_report:
+    code: "BCGD"
+    version: "2.0"
+    frequency: "daily"
+  balance_report:
+    code: "B01-TCTD"
+    version: "3.1"
+    frequency: "monthly"
+  large_value_report:
+    code: "BCGDLN"
+    version: "1.5"
+    frequency: "daily"
+  str_report:
+    code: "BCGDNS"
+    version: "2.1"
+    frequency: "on_event"
+
+audit:
+  log_dir: "data/output/audit"
+  retention_days: 2555               # 7 years per SBV Circular 01/2014
+  hash_algorithm: "sha256"
+  sign_entries: true

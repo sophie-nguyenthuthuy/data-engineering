@@ -1,0 +1,44 @@
+name: Scheduled Contract Validation
+
+on:
+  schedule:
+    # Run every day at 06:00 UTC
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+    inputs:
+      producer:
+        description: "Producer to validate (leave blank for all)"
+        required: false
+
+jobs:
+  validate:
+    name: Validate Pipeline Outputs
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dce
+        run: pip install -e .
+
+      - name: Show reliability scores
+        run: |
+          dce score --db reliability.db || echo "No runs yet."
+
+      # Add your data-fetch + validation steps here, for example:
+      #
+      # - name: Fetch latest orders data
+      #   run: |
+      #     aws s3 cp s3://my-bucket/orders/latest.parquet /tmp/orders.parquet
+      #
+      # - name: Validate orders contract
+      #   run: |
+      #     dce validate contracts/examples/orders/v2.0.0.yaml /tmp/orders.parquet \
+      #       --output reports/orders_$(date +%Y%m%d).json \
+      #       --notify ${{ secrets.WEBHOOK_URL }}

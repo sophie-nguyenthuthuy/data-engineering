@@ -1,0 +1,17 @@
+{
+  "type": "record",
+  "name": "User",
+  "namespace": "com.cdc.pipeline",
+  "doc": "User record — v1 initial schema",
+  "fields": [
+    {"name": "id",         "type": "int"},
+    {"name": "email",      "type": "string"},
+    {"name": "username",   "type": "string"},
+    {"name": "created_at", "type": {"type": "long", "logicalType": "timestamp-millis"}},
+    {"name": "updated_at", "type": {"type": "long", "logicalType": "timestamp-millis"}},
+    {"name": "__op",       "type": ["null", "string"], "default": null},
+    {"name": "__lsn",      "type": ["null", "long"],   "default": null},
+    {"name": "__ts_ms",    "type": ["null", "long"],   "default": null},
+    {"name": "__deleted",  "type": ["null", "string"], "default": null}
+  ]
+}

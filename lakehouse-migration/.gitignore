@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+.env
+config/env.yaml
+config/env.staging.yaml
+config/env.prod.yaml
+.pytest_cache/
+.spark-warehouse/
+spark-warehouse/
+derby.log
+metastore_db/
+*.egg-info/
+dist/
+.venv/
+venv/

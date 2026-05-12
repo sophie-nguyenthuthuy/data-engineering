@@ -1,0 +1,12 @@
+click>=8.1
+rich>=13.0
+pandas>=2.0
+sqlglot>=23.0
+pydantic>=2.0
+python-dotenv>=1.0
+tabulate>=0.9
+
+# Optional — install the extras you need:
+# BigQuery:  pip install "query-cost-optimizer[bigquery]"
+# Snowflake: pip install "query-cost-optimizer[snowflake]"
+# Both:      pip install "query-cost-optimizer[all]"

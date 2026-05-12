@@ -1,0 +1,57 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# kafka-s3-replay example configuration
+# ─────────────────────────────────────────────────────────────────────────────
+# Run: replay run --config config/example.yaml
+
+job_id: incident-recovery-2024-03-15
+
+# ── Topics to replay ──────────────────────────────────────────────────────────
+topics:
+  - orders
+  - payments
+  - inventory-updates
+
+# ── Time window (inclusive, max 30 days) ──────────────────────────────────────
+window:
+  start: "2024-03-14T00:00:00Z"
+  end:   "2024-03-15T23:59:59Z"
+
+# ── S3 Archive (written by Kafka Connect S3 Sink) ─────────────────────────────
+archive:
+  bucket: my-kafka-archive-bucket
+  prefix: kafka-connect/topics      # keys: {prefix}/{topic}/{partition}/{file}
+  region: us-east-1
+  format: jsonl                     # jsonl | avro | parquet
+  # endpoint_url: http://localhost:4566   # uncomment for LocalStack
+
+# ── Target ────────────────────────────────────────────────────────────────────
+target_type: kafka                  # kafka | http | file | stdout
+
+kafka_target:
+  bootstrap_servers: "localhost:9092"
+  # Remap source topic → destination topic (optional)
+  topic_mapping:
+    orders: orders-replay
+    payments: payments-replay
+  producer_config:
+    "compression.type": lz4
+    "linger.ms": 5
+
+# http_target:                      # uncomment to use HTTP/webhook target
+#   url: https://my-service/events
+#   method: POST
+#   headers:
+#     Authorization: "Bearer <token>"
+#   timeout_seconds: 30
+#   max_retries: 3
+
+# file_target:                      # uncomment to write events to a local file
+#   path: /tmp/replayed-events.jsonl
+#   format: jsonl
+#   append: false
+
+# ── Replay behaviour ──────────────────────────────────────────────────────────
+rate_limit_per_second: 1000         # null = unlimited
+dry_run: false
+checkpoint_dir: /tmp/replay-checkpoints
+max_parallel_partitions: 4

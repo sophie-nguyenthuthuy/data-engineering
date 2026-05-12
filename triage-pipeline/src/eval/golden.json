@@ -1,0 +1,18 @@
+{
+  "tenant": "acme",
+  "labels": ["billing", "support", "sales", "spam"],
+  "cases": [
+    {"subject": "Invoice overdue", "body": "Invoice 4821 is past due, please remit $1200 by Friday.", "expected": "billing"},
+    {"subject": "Refund", "body": "Refund request for order #991 — the product arrived damaged.", "expected": "billing"},
+    {"subject": "Card charged twice", "body": "My card ending 4242 was charged twice for the subscription.", "expected": "billing"},
+    {"subject": "Dashboard 500", "body": "Dashboard won't load after today's deploy, getting 500 on /reports.", "expected": "support"},
+    {"subject": "CSV export", "body": "How do I export my data as CSV? Can't find the button anywhere.", "expected": "support"},
+    {"subject": "Slack integration broken", "body": "The integration with Slack broke, messages stopped arriving around 2pm.", "expected": "support"},
+    {"subject": "Demo request", "body": "Interested in the enterprise tier — can we schedule a demo next Tuesday?", "expected": "sales"},
+    {"subject": "Contract follow-up", "body": "Following up on the proposal — any updates from legal review?", "expected": "sales"},
+    {"subject": "500 seat pricing", "body": "What's the pricing for 500 seats? We'd like an annual contract.", "expected": "sales"},
+    {"subject": "You won", "body": "CONGRATULATIONS you won $5000 click here to claim your prize!!!", "expected": "spam"},
+    {"subject": "Cheap meds", "body": "Cheap meds, no prescription, fast shipping, order now.", "expected": "spam"},
+    {"subject": "Meeting notes", "body": "Here are the notes from yesterday's sync, let me know if anything's off.", "expected": "support"}
+  ]
+}

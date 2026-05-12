@@ -1,0 +1,91 @@
+id: orders
+version: "1.0.0"
+producer: order-service
+consumers:
+  - analytics-team
+  - finance-reporting
+  - fulfillment-service
+owner: platform-team
+description: >
+  Daily orders snapshot produced by the order-service pipeline.
+  Contains one row per unique order.
+
+tags:
+  - ecommerce
+  - critical
+
+fields:
+  - name: order_id
+    type: string
+    nullable: false
+    description: Unique order identifier
+    constraints:
+      unique: true
+
+  - name: customer_id
+    type: string
+    nullable: false
+    description: Reference to customer record
+
+  - name: order_date
+    type: timestamp
+    nullable: false
+    description: UTC timestamp when the order was placed
+
+  - name: status
+    type: string
+    nullable: false
+    description: Order lifecycle status
+    constraints:
+      allowed_values: [pending, confirmed, shipped, delivered, cancelled]
+
+  - name: total_amount
+    type: number
+    nullable: false
+    description: Order total in USD
+    constraints:
+      min: 0.0
+      max: 100000.0
+
+  - name: item_count
+    type: integer
+    nullable: false
+    description: Number of line items
+    constraints:
+      min: 1
+
+  - name: discount_pct
+    type: number
+    nullable: true
+    description: Applied discount percentage (0–100)
+    constraints:
+      min: 0.0
+      max: 100.0
+
+sla_rules:
+  - name: minimum_rows
+    rule_type: row_count
+    threshold: 100
+    description: Expect at least 100 orders per daily run
+
+  - name: data_completeness
+    rule_type: completeness
+    threshold: 0.98
+    description: At least 98% of all cells must be non-null
+
+  - name: data_freshness
+    rule_type: freshness
+    threshold: 86400
+    unit: s
+    description: Dataset must be no older than 24 hours
+
+semantic_rules:
+  - name: positive_total
+    expression: "(df['total_amount'] >= 0).all()"
+    severity: error
+    description: All order totals must be non-negative
+
+  - name: status_distribution
+    expression: "(df['status'].value_counts(normalize=True).get('cancelled', 0) < 0.5)"
+    severity: warning
+    description: Cancelled orders should not exceed 50% of the dataset

@@ -1,0 +1,112 @@
+name: finnhub-pipeline
+
+services:
+  kafka:
+    image: apache/kafka:3.7.0
+    container_name: finnhub_kafka
+    ports:
+      - "9094:9094"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,EXTERNAL://localhost:9094
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      CLUSTER_ID: 4L6g3nShT-eMCtK--X86sw
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 > /dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 15
+      start_period: 25s
+
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    container_name: finnhub_timescaledb
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - timescaledb_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  producer:
+    build: ./producer
+    container_name: finnhub_producer
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      FINNHUB_API_KEY: ${FINNHUB_API_KEY}
+      SYMBOLS: ${SYMBOLS}
+      KAFKA_BOOTSTRAP: ${KAFKA_BOOTSTRAP}
+      TRADES_TOPIC: ${TRADES_TOPIC}
+    restart: unless-stopped
+
+  stream_processor:
+    build: ./stream_processor
+    container_name: finnhub_stream_processor
+    # apache-flink ships only manylinux_x86_64 wheels on PyPI.
+    # On arm64 hosts (Apple Silicon) we run this service under emulation.
+    platform: linux/amd64
+    depends_on:
+      kafka:
+        condition: service_healthy
+      timescaledb:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP: ${KAFKA_BOOTSTRAP}
+      TRADES_TOPIC: ${TRADES_TOPIC}
+      AGGREGATES_TOPIC: ${AGGREGATES_TOPIC}
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    restart: unless-stopped
+
+  api:
+    build: ./api
+    container_name: finnhub_api
+    depends_on:
+      kafka:
+        condition: service_healthy
+      timescaledb:
+        condition: service_healthy
+    ports:
+      - "${API_PORT}:8000"
+    environment:
+      KAFKA_BOOTSTRAP: ${KAFKA_BOOTSTRAP}
+      TRADES_TOPIC: ${TRADES_TOPIC}
+      AGGREGATES_TOPIC: ${AGGREGATES_TOPIC}
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_URL: http://localhost:${API_PORT}
+    container_name: finnhub_frontend
+    depends_on:
+      - api
+    ports:
+      - "${WEB_PORT}:80"
+
+volumes:
+  timescaledb_data:

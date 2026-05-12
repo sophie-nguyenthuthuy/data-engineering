@@ -1,0 +1,9 @@
+statsmodels>=0.14.0
+numpy>=1.26.0
+pandas>=2.1.0
+sqlalchemy>=2.0.0
+kubernetes>=28.1.0
+prometheus-client>=0.19.0
+croniter>=2.0.0
+pyyaml>=6.0.1
+scipy>=1.11.0

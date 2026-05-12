@@ -1,0 +1,69 @@
+# OpenTelemetry Collector — fan-out for traces, metrics, logs.
+#
+# Receivers: OTLP/gRPC (4317), OTLP/HTTP (4318).
+# Exporters:
+#   - traces  -> Tempo  (OTLP gRPC)
+#   - metrics -> Prometheus (pull, /metrics on :8889)
+#   - logs    -> Loki  (OTLP HTTP 3100)
+#
+# Prometheus scrapes the collector directly (rather than remote-write) to
+# keep the data path simple on a single host — both processes live on the
+# same Docker network.
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 5s
+    send_batch_size: 1024
+  memory_limiter:
+    check_interval: 2s
+    limit_mib: 400
+    spike_limit_mib: 100
+  resource:
+    attributes:
+      - key: deployment.environment
+        value: dev
+        action: upsert
+
+exporters:
+  otlp/tempo:
+    endpoint: tempo:4317
+    tls:
+      insecure: true
+  prometheus:
+    endpoint: 0.0.0.0:8889
+    # Convert OTel metric attributes to Prometheus labels as-is.
+    resource_to_telemetry_conversion:
+      enabled: true
+  otlphttp/loki:
+    endpoint: http://loki:3100/otlp
+  debug:
+    verbosity: basic
+
+service:
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      level: basic
+      address: 0.0.0.0:8888
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [otlp/tempo]
+    metrics:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [prometheus]
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [otlphttp/loki]

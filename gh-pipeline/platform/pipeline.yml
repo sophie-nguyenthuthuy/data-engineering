@@ -1,0 +1,17 @@
+# Bruin pipeline — single-file description of the whole GH Archive flow.
+# Run with: `bruin run` from this directory.
+# https://bruin-data.github.io/bruin/
+
+name: gh-archive-pipeline
+schedule: "0 2 * * *"          # 02:00 UTC daily
+
+default_connections:
+  google_cloud_platform: "gcp-default"
+
+variables:
+  start_date: "{{ previous_day_start }}"
+  end_date:   "{{ previous_day_end }}"
+  project:    "{{ env_var('GCP_PROJECT_ID') }}"
+  raw:        "{{ env_var('BQ_DATASET_RAW', 'gh_raw') }}"
+  staging:    "{{ env_var('BQ_DATASET_STAGING', 'gh_staging') }}"
+  marts:      "{{ env_var('BQ_DATASET_MARTS', 'gh_marts') }}"

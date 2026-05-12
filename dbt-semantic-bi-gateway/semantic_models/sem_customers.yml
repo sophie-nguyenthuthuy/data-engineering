@@ -1,0 +1,84 @@
+version: 2
+
+semantic_models:
+  - name: customers
+    description: >
+      Semantic model over dim_customers.
+      Exposes customer counts, LTV, and segmentation for cohort analysis
+      and customer-health dashboards.
+    model: ref('dim_customers')
+    defaults:
+      agg_time_dimension: first_seen_at
+
+    entities:
+      - name: customer
+        type: primary
+        expr: customer_id
+
+    dimensions:
+      - name: first_seen_at
+        type: time
+        type_params:
+          time_granularity: day
+        description: Date the customer account was created.
+
+      - name: country_code
+        type: categorical
+
+      - name: acquisition_channel
+        type: categorical
+
+      - name: customer_segment
+        type: categorical
+        description: "one_time | repeat | loyal based on order count."
+
+      - name: recency_segment
+        type: categorical
+        description: "active | at_risk | churned based on days since last order."
+
+      - name: ltv_tier
+        type: categorical
+        description: "bronze | silver | gold | platinum based on net revenue."
+
+      - name: acquisition_cohort
+        type: time
+        type_params:
+          time_granularity: month
+        description: Month the customer placed their first order.
+
+      - name: is_email_verified
+        type: categorical
+
+      - name: is_marketing_subscribed
+        type: categorical
+
+    measures:
+      - name: customer_count
+        description: Total number of customers (registered).
+        agg: count
+        expr: customer_id
+
+      - name: paying_customer_count
+        description: Customers who have placed at least one order.
+        agg: sum
+        expr: "case when has_purchased then 1 else 0 end"
+
+      - name: total_customer_revenue
+        description: Sum of net revenue across all customers.
+        agg: sum
+        expr: net_revenue_usd
+
+      - name: avg_customer_ltv
+        description: Average net revenue per paying customer.
+        agg: average
+        expr: net_revenue_usd
+
+      - name: avg_orders_per_customer
+        description: Average number of completed orders per customer.
+        agg: average
+        expr: completed_orders
+
+      - name: churned_customer_count
+        description: Customers with recency_segment = 'churned'.
+        agg: sum
+        expr: "case when recency_segment = 'churned' then 1 else 0 end"

@@ -1,0 +1,54 @@
+# pipeline-rca configuration example
+# Copy to config.yaml and fill in your values.
+
+warehouse:
+  # Supported: bigquery | snowflake | postgres | sqlite (for local testing)
+  type: bigquery
+  project: my-gcp-project
+  dataset: analytics
+  # For Snowflake: account, user, password, warehouse, database, schema
+  # For Postgres: host, port, user, password, database
+
+metrics:
+  # Downstream metrics to watch for degradation
+  - name: daily_active_users
+    query: |
+      SELECT date, COUNT(DISTINCT user_id) AS value
+      FROM {dataset}.user_events
+      WHERE date >= '{start_date}'
+      GROUP BY date
+      ORDER BY date
+    degradation_threshold: 0.15   # flag if drops > 15% vs rolling baseline
+    baseline_window_days: 14
+
+  - name: revenue_usd
+    query: |
+      SELECT date, SUM(amount) AS value
+      FROM {dataset}.transactions
+      WHERE date >= '{start_date}'
+      GROUP BY date
+      ORDER BY date
+    degradation_threshold: 0.10
+    baseline_window_days: 14
+
+lineage:
+  # Tables that feed the metrics above; RCA will trace through these
+  upstream_tables:
+    - user_events
+    - sessions
+    - transactions
+    - products
+
+schema_changes:
+  # Table that stores DDL audit events; set null to use the built-in SQLite log
+  audit_table: null   # e.g. "information_schema.columns" snapshot table
+
+causal_analysis:
+  pre_period_days: 14      # days before potential intervention to use as control
+  confidence_level: 0.95   # for the ITS regression confidence interval
+  min_effect_size: 0.05    # minimum relative effect to report as significant
+
+reporting:
+  output_dir: reports/
+  slack_webhook: null       # optional: post report to Slack
+  format: markdown          # markdown | html

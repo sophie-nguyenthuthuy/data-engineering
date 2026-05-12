@@ -1,0 +1,14 @@
+confluent-kafka==2.3.0
+redis==5.0.1
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+pandas==2.2.0
+pyarrow==14.0.2
+scipy==1.12.0
+numpy==1.26.4
+apscheduler==3.10.4
+httpx==0.26.0
+pydantic==2.6.0
+pydantic-settings==2.1.0
+pytest==8.0.0
+pytest-asyncio==0.23.4

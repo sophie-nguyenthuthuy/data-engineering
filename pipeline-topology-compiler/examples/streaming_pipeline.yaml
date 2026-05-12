@@ -1,0 +1,68 @@
+pipeline:
+  name: realtime_fraud_detection
+  description: "Realtime per-user transaction windowed aggregations for fraud scoring"
+
+  sla:
+    max_latency: "30s"
+    dataset_size: "5gb"
+
+  sources:
+    - name: transactions
+      format: kafka
+      location: transactions-topic
+      options:
+        bootstrap_servers: "kafka:9092"
+        group_id: "fraud-detector"
+      schema:
+        - {name: txn_id,      type: string,    nullable: false}
+        - {name: user_id,     type: string,    nullable: false}
+        - {name: merchant_id, type: string,    nullable: false}
+        - {name: amount,      type: double,    nullable: false}
+        - {name: event_time,  type: timestamp, nullable: false}
+        - {name: country,     type: string,    nullable: true}
+
+    - name: user_profiles
+      format: jdbc
+      location: postgres://profiles/users
+      schema:
+        - {name: user_id,      type: string,  nullable: false}
+        - {name: risk_tier,    type: string,  nullable: true}
+        - {name: account_age,  type: integer, nullable: true}
+
+  transforms:
+    - name: high_value_txns
+      type: filter
+      inputs: [transactions]
+      predicate: "amount > 100.0"
+
+    - name: txns_with_profile
+      type: join
+      inputs: [high_value_txns, user_profiles]
+      join_type: left
+      on: "high_value_txns.user_id == user_profiles.user_id"
+
+    - name: user_5min_stats
+      type: window
+      inputs: [txns_with_profile]
+      time_column: event_time
+      window_duration: "5 MINUTE"
+      slide_duration: "1 MINUTE"
+      group_by: [user_id, risk_tier]
+      aggregations:
+        - {name: txn_count,   function: count, column: txn_id}
+        - {name: total_amount, function: sum,  column: amount}
+        - {name: max_amount,  function: max,   column: amount}
+        - {name: unique_merchants, function: count_distinct, column: merchant_id}
+
+    - name: suspicious_windows
+      type: filter
+      inputs: [user_5min_stats]
+      predicate: "txn_count > 5 OR total_amount > 5000.0"
+
+  sink:
+    name: fraud_alerts
+    input: suspicious_windows
+    format: kafka
+    location: fraud-alerts-topic
+    options:
+      bootstrap_servers: "kafka:9092"

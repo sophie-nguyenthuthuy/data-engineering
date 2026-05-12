@@ -1,0 +1,94 @@
+# Lint, type-check, and test each Python service in parallel.
+#
+# Services live in services/{producer,api,orchestrator}. Each one has its
+# own pyproject.toml with a `[project.optional-dependencies].dev` group
+# pinning ruff / mypy / pytest, so the job body is identical across them.
+
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    name: "${{ matrix.service }} (${{ matrix.check }})"
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [producer, api, orchestrator]
+        check: [ruff, mypy, pytest]
+        exclude:
+          # Orchestrator mypy is off: Dagster's generated types and the
+          # PySpark stubs drift between minor releases and the signal-to-
+          # noise is too low to be worth the churn. Ruff still runs.
+          - service: orchestrator
+            check: mypy
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: services/${{ matrix.service }}/pyproject.toml
+
+      - name: Install service
+        working-directory: services/${{ matrix.service }}
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e '.[dev]'
+
+      - name: Ruff
+        if: matrix.check == 'ruff'
+        working-directory: services/${{ matrix.service }}
+        run: ruff check src tests
+
+      - name: Mypy
+        if: matrix.check == 'mypy'
+        working-directory: services/${{ matrix.service }}
+        run: mypy src
+
+      - name: Pytest
+        if: matrix.check == 'pytest'
+        working-directory: services/${{ matrix.service }}
+        run: pytest -q
+
+  # Quick config-parse of both compose files. Catches env-var / YAML
+  # regressions without actually bringing the stack up.
+  compose-config:
+    name: compose config
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate dev compose
+        run: docker compose --env-file .env.example -f docker-compose.yml config --quiet
+      - name: Validate secure compose
+        run: docker compose --env-file .env.example -f docker-compose.secure.yml config --quiet
+
+  # Dashboards are provisioned as raw JSON into Grafana on startup — a
+  # malformed one silently breaks the dashboard without failing compose.
+  # Guard against that here.
+  grafana-dashboards:
+    name: grafana dashboards
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate dashboard JSON
+        run: |
+          for f in infra/observability/grafana/dashboards/*.json; do
+            python -c "import json,sys; json.load(open('$f'))" && echo "OK $f"
+          done

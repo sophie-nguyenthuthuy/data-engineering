@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pipeline-autoscaler
+  namespace: autoscaler
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: pipeline-autoscaler
+rules:
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["get", "list", "watch", "patch", "update"]
+  - apiGroups: ["metrics.k8s.io"]
+    resources: ["pods", "nodes"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: pipeline-autoscaler
+subjects:
+  - kind: ServiceAccount
+    name: pipeline-autoscaler
+    namespace: autoscaler
+roleRef:
+  kind: ClusterRole
+  name: pipeline-autoscaler
+  apiGroup: rbac.authorization.k8s.io

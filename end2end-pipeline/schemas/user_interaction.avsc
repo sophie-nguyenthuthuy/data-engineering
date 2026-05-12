@@ -1,0 +1,69 @@
+{
+  "type": "record",
+  "name": "UserInteraction",
+  "namespace": "com.pipeline.events",
+  "doc": "A single user interaction event produced by a client.",
+  "fields": [
+    {
+      "name": "event_id",
+      "type": {"type": "string", "logicalType": "uuid"},
+      "doc": "Unique per-event ID (UUIDv4)."
+    },
+    {
+      "name": "occurred_at",
+      "type": {"type": "long", "logicalType": "timestamp-millis"},
+      "doc": "Event timestamp at source, epoch millis UTC."
+    },
+    {
+      "name": "user_id",
+      "type": "string",
+      "doc": "Stable user identifier."
+    },
+    {
+      "name": "session_id",
+      "type": "string"
+    },
+    {
+      "name": "event_type",
+      "type": {
+        "type": "enum",
+        "name": "EventType",
+        "symbols": ["page_view", "click", "add_to_cart", "checkout", "purchase", "search"]
+      }
+    },
+    {
+      "name": "status",
+      "type": {
+        "type": "enum",
+        "name": "Status",
+        "symbols": ["success", "error"]
+      }
+    },
+    {
+      "name": "error_code",
+      "type": ["null", "string"],
+      "default": null
+    },
+    {
+      "name": "latency_ms",
+      "type": "int"
+    },
+    {
+      "name": "country",
+      "type": "string"
+    },
+    {
+      "name": "device",
+      "type": {
+        "type": "enum",
+        "name": "Device",
+        "symbols": ["desktop", "mobile", "tablet"]
+      }
+    },
+    {
+      "name": "metadata",
+      "type": {"type": "map", "values": "string"},
+      "default": {}
+    }
+  ]
+}

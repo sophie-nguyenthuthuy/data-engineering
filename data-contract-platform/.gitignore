@@ -1,0 +1,30 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual envs
+.venv/
+venv/
+env/
+
+# Testing & coverage
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Runtime state
+*.db
+reports/
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# macOS
+.DS_Store

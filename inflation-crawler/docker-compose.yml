@@ -1,0 +1,23 @@
+services:
+  api:
+    build: .
+    image: inflation-crawler:latest
+    ports: ["8000:8000"]
+    volumes:
+      - ./data:/data
+    environment:
+      - IC_DATA_DIR=/data
+      - IC_DB_PATH=/data/inflation.duckdb
+      - IC_BLS_API_KEY=${IC_BLS_API_KEY:-}
+      - IC_ANTHROPIC_API_KEY=${IC_ANTHROPIC_API_KEY:-}
+
+  demo:
+    image: inflation-crawler:latest
+    depends_on: [api]
+    volumes:
+      - ./data:/data
+    environment:
+      - IC_DATA_DIR=/data
+      - IC_DB_PATH=/data/inflation.duckdb
+    command: ["bash", "scripts/run_demo.sh"]
+    profiles: ["demo"]

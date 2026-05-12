@@ -1,0 +1,39 @@
+# mv-selector configuration
+# Copy to config.local.yaml and override as needed.
+
+warehouse: bigquery           # bigquery | snowflake
+
+bigquery:
+  project: "my-gcp-project"
+  location: "US"
+  target_dataset: "analytics.mv_auto"
+
+snowflake:
+  account: "myaccount.us-east-1"
+  user: "analyst"
+  warehouse_name: "COMPUTE_WH"
+  database: "ANALYTICS"
+  schema: "PUBLIC"
+
+optimization:
+  budget_gb: 500
+  lookback_days: 30
+  min_query_frequency: 3
+  min_net_benefit_usd: 1.0
+  sa_max_iterations: 50000
+  sa_cooling_rate: 0.9995
+
+pricing:
+  # BigQuery on-demand: USD per byte scanned
+  bq_scan_price_per_byte: 0.000000000005   # $5 / TB
+  # BigQuery active storage: USD per byte per month
+  bq_storage_price_per_byte_per_month: 0.00000000002  # $0.02 / GB
+  # Snowflake credit price USD
+  sf_credit_price: 2.0
+  # Snowflake storage: USD per byte per month
+  sf_storage_price_per_byte_per_month: 0.000000000023  # $23 / TB
+
+state:
+  worklog_db: ".worklog.db"
+  calibration_file: ".mv_calibration.json"
+  state_file: ".mv_state.json"

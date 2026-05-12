@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>bitcoinMonitor</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    :root { color-scheme: dark; }
+    body { font-family: ui-sans-serif, system-ui, sans-serif; margin: 0; padding: 1.5rem 2rem;
+           background: #0b0d10; color: #e6e8eb; }
+    header { display: flex; align-items: baseline; gap: 1rem; margin-bottom: 1rem; }
+    h1 { margin: 0; font-size: 1.25rem; font-weight: 600; }
+    select, button { background: #161a1f; color: inherit; border: 1px solid #2a3038;
+                     border-radius: 6px; padding: 0.4rem 0.7rem; font: inherit; }
+    .meta { color: #8a93a0; font-size: 0.85rem; }
+    .price { font-size: 2rem; font-weight: 600; margin: 0.5rem 0 1rem; }
+    canvas { background: #11141a; border: 1px solid #1f242c; border-radius: 8px; padding: 0.5rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>bitcoinMonitor</h1>
+    <select id="asset"></select>
+    <span class="meta" id="meta"></span>
+  </header>
+  <div class="price" id="last">—</div>
+  <canvas id="chart" width="900" height="320"></canvas>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    let chart;
+
+    async function loadAssets() {
+      const r = await fetch('/assets'); const j = await r.json();
+      const sel = $('asset');
+      sel.innerHTML = '';
+      j.assets.forEach((a) => {
+        const o = document.createElement('option'); o.value = a; o.textContent = a;
+        sel.appendChild(o);
+      });
+      $('meta').textContent = `quote: ${j.vs_currency.toUpperCase()}`;
+    }
+
+    async function refresh() {
+      const asset = $('asset').value || 'bitcoin';
+      const r = await fetch(`/prices?asset=${encodeURIComponent(asset)}&limit=500`);
+      const j = await r.json();
+      const labels = j.points.map((p) => new Date(p.ts * 1000).toLocaleTimeString());
+      const data = j.points.map((p) => p.price);
+      const last = data[data.length - 1];
+      $('last').textContent = last != null
+        ? `${asset.toUpperCase()}  ${last.toLocaleString(undefined, {style:'currency', currency: j.vs_currency.toUpperCase()})}`
+        : '—';
+      if (!chart) {
+        chart = new Chart($('chart').getContext('2d'), {
+          type: 'line',
+          data: { labels, datasets: [{ label: asset, data, tension: 0.25, borderWidth: 2, pointRadius: 0 }] },
+          options: { animation: false, responsive: false, scales: { x: { ticks: { maxTicksLimit: 8 } } } },
+        });
+      } else {
+        chart.data.labels = labels;
+        chart.data.datasets[0].data = data;
+        chart.data.datasets[0].label = asset;
+        chart.update('none');
+      }
+    }
+
+    (async () => {
+      await loadAssets();
+      $('asset').addEventListener('change', refresh);
+      await refresh();
+      setInterval(refresh, 5000);
+    })();
+  </script>
+</body>
+</html>

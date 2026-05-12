@@ -1,0 +1,104 @@
+version: "3.9"
+
+networks:
+  raft_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24
+
+x-node: &node-base
+  build: .
+  cap_add:
+    - NET_ADMIN
+  networks:
+    - raft_net
+  restart: unless-stopped
+
+services:
+  node1:
+    <<: *node-base
+    container_name: node1
+    command:
+      - --id=node1
+      - --port=8001
+      - --peers=node2=node2:8001,node3=node3:8001
+      - --data-dir=/data
+    volumes:
+      - node1_data:/data
+    ports:
+      - "8001:8001"
+    networks:
+      raft_net:
+        ipv4_address: 172.20.0.11
+
+  node2:
+    <<: *node-base
+    container_name: node2
+    command:
+      - --id=node2
+      - --port=8001
+      - --peers=node1=node1:8001,node3=node3:8001
+      - --data-dir=/data
+    volumes:
+      - node2_data:/data
+    ports:
+      - "8002:8001"
+    networks:
+      raft_net:
+        ipv4_address: 172.20.0.12
+
+  node3:
+    <<: *node-base
+    container_name: node3
+    command:
+      - --id=node3
+      - --port=8001
+      - --peers=node1=node1:8001,node2=node2:8001
+      - --data-dir=/data
+    volumes:
+      - node3_data:/data
+    ports:
+      - "8003:8001"
+    networks:
+      raft_net:
+        ipv4_address: 172.20.0.13
+
+  node4:
+    <<: *node-base
+    container_name: node4
+    command:
+      - --id=node4
+      - --port=8001
+      - --peers=node1=node1:8001,node2=node2:8001,node3=node3:8001
+      - --data-dir=/data
+    volumes:
+      - node4_data:/data
+    ports:
+      - "8004:8001"
+    networks:
+      raft_net:
+        ipv4_address: 172.20.0.14
+
+  node5:
+    <<: *node-base
+    container_name: node5
+    command:
+      - --id=node5
+      - --port=8001
+      - --peers=node1=node1:8001,node2=node2:8001,node3=node3:8001,node4=node4:8001
+      - --data-dir=/data
+    volumes:
+      - node5_data:/data
+    ports:
+      - "8005:8001"
+    networks:
+      raft_net:
+        ipv4_address: 172.20.0.15
+
+volumes:
+  node1_data:
+  node2_data:
+  node3_data:
+  node4_data:
+  node5_data:

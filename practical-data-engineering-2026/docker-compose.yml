@@ -1,0 +1,82 @@
+services:
+  minio:
+    image: minio/minio:latest
+    container_name: re-minio
+    ports:
+      - "9100:9000"
+      - "9101:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minio12345}
+    volumes:
+      - minio-data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio-init:
+    image: minio/mc:latest
+    container_name: re-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      sh -c "
+      mc alias set local http://minio:9000 ${MINIO_ROOT_USER:-minio} ${MINIO_ROOT_PASSWORD:-minio12345} &&
+      mc mb -p local/warehouse || true &&
+      mc mb -p local/raw || true &&
+      mc mb -p local/staging || true &&
+      echo 'Buckets ready.'
+      "
+
+  dagster:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: re-dagster
+    ports:
+      - "3100:3000"
+    environment:
+      DAGSTER_HOME: /opt/dagster/dagster_home
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minio}
+      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minio12345}
+      WAREHOUSE_PATH: s3://warehouse/
+      CATALOG_URI: sqlite:////opt/dagster/dagster_home/catalog.db
+    volumes:
+      - ./src:/opt/app/src
+      - ./dagster_home:/opt/dagster/dagster_home
+      - ./data:/opt/app/data
+    depends_on:
+      minio-init:
+        condition: service_completed_successfully
+    command: >
+      dagster dev --host 0.0.0.0 --port 3000
+      -m re_pipeline.definitions
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: re-dashboard
+    ports:
+      - "8501:8501"
+    environment:
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: ${MINIO_ROOT_USER:-minio}
+      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minio12345}
+      CATALOG_URI: sqlite:////opt/dagster/dagster_home/catalog.db
+      WAREHOUSE_PATH: s3://warehouse/
+    volumes:
+      - ./src:/opt/app/src
+      - ./dashboard:/opt/app/dashboard
+      - ./dagster_home:/opt/dagster/dagster_home
+    depends_on:
+      - minio-init
+    command: streamlit run /opt/app/dashboard/app.py --server.address 0.0.0.0 --server.port 8501
+
+volumes:
+  minio-data:

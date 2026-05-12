@@ -1,0 +1,54 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pipeline-rca"
+version = "0.1.0"
+description = "Automated root cause attribution for data pipeline failures using causal impact analysis"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+    "numpy>=1.26",
+    "pandas>=2.1",
+    "scipy>=1.11",
+    "statsmodels>=0.14",
+    "jinja2>=3.1",
+    "click>=8.1",
+    "pyyaml>=6.0",
+    "sqlalchemy>=2.0",
+    "rich>=13.0",
+    "python-dateutil>=2.8",
+]
+
+[project.optional-dependencies]
+bigquery = ["google-cloud-bigquery>=3.11", "db-dtypes>=1.1"]
+snowflake = ["snowflake-sqlalchemy>=1.5"]
+postgres = ["psycopg2-binary>=2.9"]
+dev = [
+    "pytest>=7.4",
+    "pytest-cov>=4.1",
+    "ruff>=0.1",
+    "mypy>=1.6",
+]
+
+[project.scripts]
+pipeline-rca = "pipeline_rca.cli:cli"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pipeline_rca"]
+
+[tool.ruff]
+src = ["src"]
+line-length = 100
+target-version = "py310"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=pipeline_rca --cov-report=term-missing"
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+ignore_missing_imports = true

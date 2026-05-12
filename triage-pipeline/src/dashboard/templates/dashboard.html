@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Triage · {{ user.tenant_id }}</title>
+  <link rel="stylesheet" href="/static/app.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">Triage Control Plane</div>
+    <div class="who">
+      <span class="badge">tenant: <b>{{ user.tenant_id }}</b></span>
+      <span class="badge">role: <b>{{ user.role }}</b></span>
+      <span class="user">{{ user.sub }}</span>
+      <a class="link" href="/logout">sign out</a>
+    </div>
+  </header>
+
+  <main class="grid">
+    <section class="card" id="overview-card">
+      <h2>Overview</h2>
+      <div class="metrics" id="metrics">loading…</div>
+      <div class="subgrid">
+        <div>
+          <h3>By label</h3>
+          <table id="by-label"><thead><tr><th>label</th><th>n</th><th>avg conf</th></tr></thead><tbody></tbody></table>
+        </div>
+        <div>
+          <h3>By priority</h3>
+          <table id="by-priority"><thead><tr><th>priority</th><th>n</th></tr></thead><tbody></tbody></table>
+        </div>
+        <div>
+          <h3>Pub/Sub state</h3>
+          <table id="pubsub"><thead><tr><th>topic</th><th>state</th><th>count</th></tr></thead><tbody></tbody></table>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>Actions</h2>
+        <small>admin only — seeded admin has full perms</small>
+      </div>
+      <div class="actions">
+        <button data-action="ingest">Ingest batch</button>
+        <button data-action="process">Drain queue</button>
+        <button data-action="eval">Run eval</button>
+      </div>
+      <pre id="action-output" class="output">—</pre>
+    </section>
+
+    <section class="card span2">
+      <div class="card-head"><h2>Messages</h2><button class="ghost" onclick="refresh('messages')">refresh</button></div>
+      <table id="messages">
+        <thead><tr><th>received</th><th>sender</th><th>subject</th><th>label</th><th>pri</th><th>conf</th><th>summary</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h2>DLQ</h2><button class="ghost" onclick="refresh('dlq')">refresh</button></div>
+      <table id="dlq">
+        <thead><tr><th>published</th><th>topic</th><th>attempts</th><th>error</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section class="card">
+      <div class="card-head"><h2>Recent runs</h2><button class="ghost" onclick="refresh('runs')">refresh</button></div>
+      <table id="runs">
+        <thead><tr><th>kind</th><th>status</th><th>started</th><th>details</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section class="card span2">
+      <div class="card-head"><h2>Eval scores (latest)</h2><button class="ghost" onclick="refresh('eval')">refresh</button></div>
+      <table id="eval">
+        <thead><tr><th>run</th><th>label</th><th>P</th><th>R</th><th>F1</th><th>support</th><th>started</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section class="card span2">
+      <div class="card-head"><h2>Slack outbox (what would be posted)</h2><button class="ghost" onclick="refresh('slack')">refresh</button></div>
+      <table id="slack">
+        <thead><tr><th>ts</th><th>channel</th><th>text</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

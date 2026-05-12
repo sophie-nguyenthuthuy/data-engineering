@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cardinality-learned-optimizer"
+version = "0.1.0"
+description = "Neo/Bao query optimizer loop with TreeLSTM cardinality estimation and adaptive recompilation"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+keywords = ["query-optimization", "cardinality-estimation", "machine-learning", "postgresql", "database"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Topic :: Database",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+]
+dependencies = [
+    "torch>=2.1.0",
+    "numpy>=1.24.0",
+    "psycopg2-binary>=2.9.0",
+    "tqdm>=4.65.0",
+    "rich>=13.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "ruff>=0.1.0",
+]
+
+[project.urls]
+Repository = "https://github.com/thuyngch/cardinality-learned-optimizer"
+Paper-Bao = "https://dl.acm.org/doi/10.14778/3494124.3494126"
+Paper-Neo = "https://dl.acm.org/doi/10.14778/3342263.3342644"
+Paper-JOB = "https://www.vldb.org/pvldb/vol9/p204-leis.pdf"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --tb=short"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501"]

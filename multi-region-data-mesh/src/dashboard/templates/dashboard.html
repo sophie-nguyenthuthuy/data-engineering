@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Data Mesh — {{ region_id }} Dashboard</title>
+  <style>
+    :root {
+      --bg: #0f1117; --surface: #1a1d27; --surface2: #22263a;
+      --accent: #4f8ef7; --green: #22c55e; --yellow: #facc15;
+      --red: #ef4444; --text: #e2e8f0; --muted: #64748b;
+      --border: #2d3152; --radius: 10px; --font: 'Inter', system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: var(--font); min-height: 100vh; }
+
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 32px; border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+    header h1 { font-size: 1.2rem; font-weight: 700; letter-spacing: .5px; }
+    header h1 span { color: var(--accent); }
+    .badge {
+      padding: 4px 12px; border-radius: 20px; font-size: .75rem; font-weight: 600;
+    }
+    .badge.healthy { background: #166534; color: var(--green); }
+    .badge.degraded { background: #7c2d12; color: var(--red); }
+
+    .layout { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; padding: 28px 32px; }
+
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 22px; position: relative; overflow: hidden;
+    }
+    .card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, var(--accent), #818cf8);
+    }
+    .card.green::before { background: linear-gradient(90deg, var(--green), #4ade80); }
+    .card.yellow::before { background: linear-gradient(90deg, var(--yellow), #fde68a); }
+    .card.red::before { background: linear-gradient(90deg, var(--red), #f87171); }
+
+    .card h2 { font-size: .7rem; text-transform: uppercase; letter-spacing: 1px; color: var(--muted); margin-bottom: 14px; }
+    .metric { font-size: 2.4rem; font-weight: 800; line-height: 1; }
+    .metric.sm { font-size: 1.4rem; }
+    .sub { font-size: .78rem; color: var(--muted); margin-top: 6px; }
+
+    /* Peers */
+    .peers { display: flex; flex-direction: column; gap: 12px; }
+    .peer {
+      background: var(--surface2); border-radius: 8px; padding: 12px 14px;
+      display: grid; grid-template-columns: 14px 1fr auto; align-items: center; gap: 10px;
+    }
+    .dot { width: 10px; height: 10px; border-radius: 50%; }
+    .dot.up   { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .dot.down { background: var(--red);   box-shadow: 0 0 6px var(--red); }
+    .peer-url { font-size: .82rem; color: var(--text); word-break: break-all; }
+    .peer-lag { font-size: .78rem; color: var(--accent); font-weight: 600; white-space: nowrap; }
+
+    /* Lag gauge */
+    .gauge-wrap { margin-top: 10px; }
+    .gauge-bar { height: 8px; border-radius: 4px; background: var(--surface2); overflow: hidden; }
+    .gauge-fill { height: 100%; border-radius: 4px; transition: width .6s ease; }
+    .lag-good  { background: var(--green); }
+    .lag-warn  { background: var(--yellow); }
+    .lag-crit  { background: var(--red); }
+    .gauge-labels { display: flex; justify-content: space-between; font-size: .7rem; color: var(--muted); margin-top: 4px; }
+
+    /* Conflict log */
+    .conflict-table { width: 100%; border-collapse: collapse; font-size: .78rem; }
+    .conflict-table th { text-align: left; color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--border); }
+    .conflict-table td { padding: 7px 8px; border-bottom: 1px solid var(--border); }
+    .conflict-table tr:last-child td { border-bottom: none; }
+    .pill {
+      display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: .7rem; font-weight: 600;
+    }
+    .pill.lww      { background: #1e3a5f; color: #60a5fa; }
+    .pill.crdt     { background: #1a3a1a; color: var(--green); }
+    .pill.business { background: #3b2f00; color: var(--yellow); }
+    .pill.merged   { background: #312156; color: #c4b5fd; }
+    .pill.kept_local  { background: #1e3a5f; color: #93c5fd; }
+    .pill.kept_remote { background: #3b1f1f; color: #fca5a5; }
+
+    /* Strategy indicator */
+    .strategy-name { font-size: 1.6rem; font-weight: 800; text-transform: uppercase; letter-spacing: 2px; }
+    .strategy-desc { font-size: .78rem; color: var(--muted); margin-top: 8px; line-height: 1.5; }
+
+    /* Uptime */
+    .uptime-val { font-size: 1.1rem; font-weight: 700; margin-top: 8px; }
+
+    /* Empty state */
+    .empty { color: var(--muted); font-size: .82rem; text-align: center; padding: 20px 0; }
+
+    /* Auto-refresh bar */
+    .refresh-bar {
+      position: fixed; bottom: 0; left: 0; right: 0; height: 3px;
+      background: var(--surface2); overflow: hidden;
+    }
+    .refresh-progress {
+      height: 100%; background: var(--accent);
+      animation: sweep 5s linear infinite;
+    }
+    @keyframes sweep { from { width: 0 } to { width: 100% } }
+
+    footer {
+      text-align: center; padding: 20px; color: var(--muted);
+      font-size: .72rem; border-top: 1px solid var(--border);
+    }
+
+    /* Responsive full-width section */
+    .full { grid-column: 1 / -1; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>&#9670; Data Mesh Node &mdash; <span>{{ region_id }}</span></h1>
+  <span id="statusBadge" class="badge">loading…</span>
+</header>
+
+<div class="layout" id="layout">
+  <!-- Cards injected by JS -->
+</div>
+
+<footer>Auto-refreshes every 5 s &nbsp;|&nbsp; Data Mesh Node v1.0 &nbsp;|&nbsp; Region: <strong>{{ region_id }}</strong></footer>
+<div class="refresh-bar"><div class="refresh-progress"></div></div>
+
+<script>
+const REGION = "{{ region_id }}";
+
+const STRATEGY_DESC = {
+  lww:      "Last-Write-Wins: the record with the highest wall-clock timestamp survives a concurrent conflict.",
+  crdt:     "CRDT PN-Counter: per-region credit/debit counters are merged element-wise; no balance update is ever lost.",
+  business: "Business Rules: balance via CRDT, tags via OR-Set union, metadata per-key LWW, owner set at origin.",
+};
+
+function fmtTime(ts) {
+  if (!ts) return "—";
+  return new Date(ts * 1000).toLocaleTimeString();
+}
+function fmtAgo(ts) {
+  if (!ts) return "—";
+  const s = Math.round(Date.now()/1000 - ts);
+  if (s < 60) return `${s}s ago`;
+  if (s < 3600) return `${Math.floor(s/60)}m ${s%60}s ago`;
+  return `${Math.floor(s/3600)}h ago`;
+}
+function fmtLag(s) {
+  if (s === null || s === undefined) return "—";
+  if (s < 0.1) return `${(s*1000).toFixed(0)} ms`;
+  return `${s.toFixed(2)} s`;
+}
+function lagClass(s) {
+  if (s === null || s === undefined) return "";
+  if (s < 0.5) return "lag-good";
+  if (s < 2.0) return "lag-warn";
+  return "lag-crit";
+}
+function lagWidth(s) {
+  if (s === null || s === undefined) return "0%";
+  // 0→green(0%) 5s→red(100%)
+  return Math.min(100, (s / 5) * 100).toFixed(1) + "%";
+}
+
+function peerCards(peers) {
+  if (!peers || peers.length === 0) {
+    return `<div class="empty">No peers configured</div>`;
+  }
+  return peers.map(p => `
+    <div class="peer">
+      <span class="dot ${p.reachable ? 'up' : 'down'}"></span>
+      <span class="peer-url">${p.peer_url}</span>
+      <span class="peer-lag">${fmtLag(p.last_lag_seconds)}</span>
+    </div>
+    <div class="gauge-wrap">
+      <div class="gauge-bar">
+        <div class="gauge-fill ${lagClass(p.last_lag_seconds)}" style="width:${lagWidth(p.last_lag_seconds)}"></div>
+      </div>
+      <div class="gauge-labels"><span>0 ms</span><span>2.5 s</span><span>5 s+</span></div>
+    </div>
+  `).join('');
+}
+
+function conflictRows(conflicts) {
+  if (!conflicts || conflicts.length === 0) {
+    return `<tr><td colspan="5" class="empty">No conflicts yet</td></tr>`;
+  }
+  return conflicts.map(c => `
+    <tr>
+      <td style="font-family:monospace;font-size:.72rem">${c.account_id.slice(0,8)}…</td>
+      <td><span class="pill ${c.strategy_used}">${c.strategy_used}</span></td>
+      <td>${c.local_region} ↔ ${c.remote_region}</td>
+      <td><span class="pill ${c.resolution}">${c.resolution.replace('_',' ')}</span></td>
+      <td style="color:var(--muted)">${fmtTime(c.resolved_at)}</td>
+    </tr>
+  `).join('');
+}
+
+async function refresh() {
+  let data;
+  try {
+    const r = await fetch('/health');
+    data = await r.json();
+  } catch(e) {
+    document.getElementById('statusBadge').textContent = 'unreachable';
+    document.getElementById('statusBadge').className = 'badge degraded';
+    return;
+  }
+
+  const badge = document.getElementById('statusBadge');
+  badge.textContent = data.status;
+  badge.className = `badge ${data.status}`;
+
+  const lagColor = data.max_lag_seconds === null
+    ? ""
+    : data.max_lag_seconds < 0.5 ? "green"
+    : data.max_lag_seconds < 2.0 ? "yellow"
+    : "red";
+
+  document.getElementById('layout').innerHTML = `
+
+    <!-- Row 1: key metrics -->
+    <div class="card green">
+      <h2>Total Accounts</h2>
+      <div class="metric">${data.total_accounts}</div>
+      <div class="sub">Local region storage</div>
+    </div>
+
+    <div class="card ${lagColor}">
+      <h2>Max Replication Lag</h2>
+      <div class="metric sm">${fmtLag(data.max_lag_seconds)}</div>
+      <div class="sub">Across all peers &nbsp;·&nbsp; last synced ${fmtAgo(data.last_replication_at)}</div>
+      <div class="gauge-wrap" style="margin-top:14px">
+        <div class="gauge-bar">
+          <div class="gauge-fill ${lagClass(data.max_lag_seconds)}" style="width:${lagWidth(data.max_lag_seconds)}"></div>
+        </div>
+        <div class="gauge-labels"><span>0 ms</span><span>2.5 s</span><span>≥ 5 s</span></div>
+      </div>
+    </div>
+
+    <div class="card yellow">
+      <h2>Conflicts Resolved</h2>
+      <div class="metric">${data.conflicts_resolved}</div>
+      <div class="sub">Since node start</div>
+    </div>
+
+    <div class="card">
+      <h2>Records In / Out</h2>
+      <div class="metric sm">↓ ${data.records_replicated_in} &nbsp; ↑ ${data.records_replicated_out}</div>
+      <div class="sub">Replicated records this session</div>
+    </div>
+
+    <!-- Row 2: strategy + uptime + peers -->
+    <div class="card">
+      <h2>Conflict Strategy</h2>
+      <div class="strategy-name" style="color:var(--accent)">${data.conflict_strategy}</div>
+      <div class="strategy-desc">${STRATEGY_DESC[data.conflict_strategy] || ''}</div>
+    </div>
+
+    <div class="card">
+      <h2>Uptime</h2>
+      <div class="uptime-val">${formatUptime(data.uptime_seconds)}</div>
+      <div class="sub">Region: <strong>${data.region_id}</strong></div>
+    </div>
+
+    <div class="card full">
+      <h2>Replication Peers</h2>
+      <div class="peers">${peerCards(data.replication_peers)}</div>
+    </div>
+
+    <!-- Row 3: conflict log -->
+    <div class="card full">
+      <h2>Recent Conflict Events (last 10)</h2>
+      <table class="conflict-table">
+        <thead>
+          <tr>
+            <th>Account</th><th>Strategy</th><th>Regions</th><th>Resolution</th><th>Time</th>
+          </tr>
+        </thead>
+        <tbody>${conflictRows(data.recent_conflicts)}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+function formatUptime(s) {
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = Math.floor(s % 60);
+  const parts = [];
+  if (h) parts.push(`${h}h`);
+  if (m) parts.push(`${m}m`);
+  parts.push(`${sec}s`);
+  return parts.join(' ');
+}
+
+refresh();
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>

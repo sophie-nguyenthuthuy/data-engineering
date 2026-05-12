@@ -1,0 +1,12 @@
+fastapi==0.115.12
+uvicorn[standard]==0.34.2
+sqlalchemy==2.0.40
+sqlglot>=25.0.0
+pydantic>=2.10.1,!=2.11.0,!=2.11.1,!=2.11.2,!=2.11.3,!=2.11.4
+aiofiles==24.1.0
+python-multipart==0.0.20
+psycopg2-binary==2.9.10
+pymysql==1.1.1
+httpx==0.28.1
+pytest==8.3.5
+pytest-asyncio==0.26.0

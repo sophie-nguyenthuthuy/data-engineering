@@ -1,0 +1,38 @@
+table dim_customer
+	lineageTag: dim-customer-0001
+
+	column customer_sk
+		dataType: string
+		sourceColumn: customer_sk
+		summarizeBy: none
+		isKey
+		isHidden
+
+	column customer_id
+		dataType: string
+		sourceColumn: customer_id
+		summarizeBy: none
+
+	column email
+		dataType: string
+		sourceColumn: email
+		summarizeBy: none
+		annotation IsPII = true
+
+	column city
+		dataType: string
+		sourceColumn: city
+		summarizeBy: none
+
+	column country
+		dataType: string
+		sourceColumn: country
+		summarizeBy: none
+		dataCategory: Country
+
+	partition dim_customer-partition = entity
+		mode: directLake
+		source
+			entityName: dim_customer_current
+			schemaName: gold
+			expressionSource: 'Sales Lakehouse'

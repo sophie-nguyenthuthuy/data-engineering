@@ -1,0 +1,14 @@
+analytics:
+  target: prod
+  outputs:
+    prod:
+      type: postgres
+      host: postgres
+      port: 5432
+      user: analytics
+      password: "{{ env_var('ANALYTICS_DB_PASSWORD') }}"
+      dbname: analytics
+      schema: bronze
+      threads: 4
+      keepalives_idle: 0
+      sslmode: disable

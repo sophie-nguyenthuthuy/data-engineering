@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Triage · Sign in</title>
+  <link rel="stylesheet" href="/static/app.css" />
+</head>
+<body class="login">
+  <form class="login-card" method="post" action="/login">
+    <h1>Triage Control Plane</h1>
+    <p class="hint">Seeded users: <code>acme-admin</code> / <code>globex-admin</code>, password <code>changeme</code></p>
+    <label>Username<input name="username" autofocus required /></label>
+    <label>Password<input name="password" type="password" required /></label>
+    <button type="submit">Sign in</button>
+  </form>
+</body>
+</html>

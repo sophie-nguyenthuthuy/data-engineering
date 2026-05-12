@@ -1,0 +1,109 @@
+version: 2
+
+semantic_models:
+  - name: orders
+    description: >
+      Semantic model over fct_orders.
+      Defines the grain, entities, dimensions, and measures used by MetricFlow
+      to answer revenue and order-volume questions across all connected BI tools.
+    model: ref('fct_orders')
+    defaults:
+      agg_time_dimension: ordered_at
+
+    # ── Entities (join keys) ──────────────────────────────────────────────────
+    entities:
+      - name: order
+        type: primary
+        expr: order_id
+
+      - name: customer
+        type: foreign
+        expr: customer_id
+
+      - name: campaign
+        type: foreign
+        expr: campaign_id
+
+    # ── Dimensions ────────────────────────────────────────────────────────────
+    dimensions:
+      - name: ordered_at
+        type: time
+        type_params:
+          time_granularity: day
+        description: Timestamp when the order was placed.
+
+      - name: order_status
+        type: categorical
+        description: Current fulfilment status of the order.
+
+      - name: country_code
+        type: categorical
+        description: Two-letter ISO country code of the customer.
+
+      - name: acquisition_channel
+        type: categorical
+        description: Channel that originally acquired the customer.
+
+      - name: campaign_channel
+        type: categorical
+        description: Channel of the last-touch attributed marketing campaign.
+
+      - name: is_cancelled
+        type: categorical
+        description: Boolean — true if the order was cancelled.
+
+      - name: is_returned
+        type: categorical
+        description: Boolean — true if the order was returned/refunded.
+
+    # ── Measures ──────────────────────────────────────────────────────────────
+    measures:
+      - name: order_count
+        description: Total number of orders.
+        agg: count
+        expr: order_id
+
+      - name: gross_revenue
+        description: Sum of gross order revenue in USD before discounts.
+        agg: sum
+        expr: gross_revenue_usd
+
+      - name: net_revenue
+        description: Sum of net revenue in USD (gross minus discounts).
+        agg: sum
+        expr: net_revenue_usd
+
+      - name: discount_amount
+        description: Total discount amount applied across all orders.
+        agg: sum
+        expr: discount_amount_usd
+
+      - name: shipping_revenue
+        description: Total shipping fees collected.
+        agg: sum
+        expr: shipping_amount_usd
+
+      - name: avg_order_value
+        description: Average net order value (net_revenue / order_count).
+        agg: average
+        expr: net_revenue_usd
+
+      - name: max_order_value
+        description: Largest single net order value in the period.
+        agg: max
+        expr: net_revenue_usd
+
+      - name: distinct_customers
+        description: Count of unique customers who placed orders.
+        agg: count_distinct
+        expr: customer_id
+
+      - name: returned_order_count
+        description: Number of returned or refunded orders.
+        agg: sum
+        expr: "case when is_returned then 1 else 0 end"
+
+      - name: cancelled_order_count
+        description: Number of cancelled orders.
+        agg: sum
+        expr: "case when is_cancelled then 1 else 0 end"

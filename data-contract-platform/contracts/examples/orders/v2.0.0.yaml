@@ -1,0 +1,86 @@
+id: orders
+version: "2.0.0"
+producer: order-service
+consumers:
+  - analytics-team
+  - finance-reporting
+  - fulfillment-service
+owner: platform-team
+description: >
+  Breaking v2 — renames total_amount to order_total (BREAKING),
+  removes discount_pct (BREAKING), adds currency field.
+
+tags:
+  - ecommerce
+  - critical
+
+fields:
+  - name: order_id
+    type: string
+    nullable: false
+    constraints:
+      unique: true
+
+  - name: customer_id
+    type: string
+    nullable: false
+
+  - name: order_date
+    type: timestamp
+    nullable: false
+
+  - name: status
+    type: string
+    nullable: false
+    constraints:
+      allowed_values: [pending, confirmed, shipped, delivered, cancelled, refunded]
+
+  - name: order_total
+    type: number
+    nullable: false
+    description: "Replaces total_amount (BREAKING rename)"
+    constraints:
+      min: 0.0
+
+  - name: currency
+    type: string
+    nullable: false
+    description: ISO 4217 currency code
+    constraints:
+      allowed_values: [USD, EUR, GBP, JPY, VND]
+
+  - name: item_count
+    type: integer
+    nullable: false
+    constraints:
+      min: 1
+
+  - name: shipping_region
+    type: string
+    nullable: false
+    description: "Now required (was nullable in v1.1.0)"
+
+sla_rules:
+  - name: minimum_rows
+    rule_type: row_count
+    threshold: 500
+
+  - name: data_completeness
+    rule_type: completeness
+    threshold: 0.99
+
+  - name: data_freshness
+    rule_type: freshness
+    threshold: 43200
+    unit: s
+    description: Freshness SLA tightened to 12 hours
+
+semantic_rules:
+  - name: positive_total
+    expression: "(df['order_total'] >= 0).all()"
+    severity: error
+
+  - name: valid_currency
+    expression: "df['currency'].notna().all()"
+    severity: error
+    description: All rows must have a currency code

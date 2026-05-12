@@ -1,0 +1,17 @@
+{
+  "name": "pg-orders-connector",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "database.hostname": "de_postgres",
+    "database.port": "5432",
+    "database.user": "de_user",
+    "database.password": "de_password",
+    "database.dbname": "de_db",
+    "database.server.name": "app",
+    "table.include.list": "public.orders",
+    "topic.prefix": "app",
+    "slot.name": "orders_slot",
+    "publication.name": "dbz_publication",
+    "plugin.name": "pgoutput"
+  }
+}

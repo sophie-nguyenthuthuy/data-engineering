@@ -1,0 +1,117 @@
+version: 2
+
+metrics:
+  - name: total_items_sold
+    description: Total number of order line items sold.
+    type: simple
+    type_params:
+      measure:
+        name: items_sold
+        fill_nulls_with: 0
+    label: "Items Sold"
+
+  - name: total_product_revenue
+    description: Net revenue from product line items.
+    type: simple
+    type_params:
+      measure:
+        name: item_net_revenue
+        fill_nulls_with: 0
+    label: "Product Net Revenue (USD)"
+
+  - name: total_cogs
+    description: Total cost of goods sold across all line items.
+    type: simple
+    type_params:
+      measure:
+        name: cogs
+        fill_nulls_with: 0
+    label: "COGS (USD)"
+
+  - name: total_product_gross_profit
+    description: Gross profit from product sales.
+    type: simple
+    type_params:
+      measure:
+        name: gross_profit
+        fill_nulls_with: 0
+    label: "Product Gross Profit (USD)"
+
+  - name: product_gross_margin_rate
+    description: >
+      Gross profit as a percentage of net product revenue.
+    type: ratio
+    type_params:
+      numerator:
+        name: gross_profit
+        fill_nulls_with: 0
+      denominator:
+        name: item_net_revenue
+        fill_nulls_with: 1
+    label: "Product Gross Margin %"
+
+  - name: avg_selling_price
+    description: Average unit selling price across all items sold.
+    type: simple
+    type_params:
+      measure: avg_unit_price
+    label: "Avg Selling Price (USD)"
+
+  - name: revenue_by_category
+    description: >
+      Net revenue broken down by product category.
+      Use with the category dimension for category-level analysis.
+    type: simple
+    type_params:
+      measure:
+        name: item_net_revenue
+        fill_nulls_with: 0
+    label: "Revenue by Category (USD)"
+
+  # ── Marketing metrics ──────────────────────────────────────────────────────
+
+  - name: total_marketing_spend
+    description: Total marketing spend in USD across all campaigns.
+    type: simple
+    type_params:
+      measure:
+        name: total_spend
+        fill_nulls_with: 0
+    label: "Marketing Spend (USD)"
+
+  - name: total_campaign_attributed_revenue
+    description: Revenue attributed to marketing campaigns (last-touch).
+    type: simple
+    type_params:
+      measure:
+        name: campaign_attributed_revenue
+        fill_nulls_with: 0
+    label: "Campaign Attributed Revenue (USD)"
+
+  - name: blended_roas
+    description: >
+      Return on Ad Spend across all campaigns.
+      Formula: attributed_revenue / spend.
+    type: ratio
+    type_params:
+      numerator:
+        name: campaign_attributed_revenue
+        fill_nulls_with: 0
+      denominator:
+        name: total_spend
+        fill_nulls_with: 1
+    label: "Blended ROAS"
+
+  - name: blended_cac
+    description: >
+      Average customer acquisition cost.
+      Formula: total_spend / attributed_customers.
+    type: ratio
+    type_params:
+      numerator:
+        name: total_spend
+        fill_nulls_with: 0
+      denominator:
+        name: campaign_attributed_customers
+        fill_nulls_with: 1
+    label: "Blended CAC (USD)"

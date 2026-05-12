@@ -1,0 +1,70 @@
+version: 2
+
+exposures:
+  # ── Reverse-ETL / Operational data products ────────────────────────────────
+  - name: hightouch_crm_sync
+    label: "Hightouch — CRM Customer Sync"
+    type: application
+    maturity: high
+    description: >
+      Reverse-ETL sync from dim_customers and fct_customer_ltv into Salesforce
+      CRM. Runs nightly to update LTV tier, RFM scores, and churn risk flags
+      on Contact records. Powers sales team segmentation.
+    owner:
+      name: "Revenue Operations"
+      email: "revops@company.com"
+    tags: ["reverse-etl", "crm", "salesforce"]
+    depends_on:
+      - ref: dim_customers
+      - ref: fct_customer_ltv
+      - metric: avg_customer_ltv
+
+  - name: braze_segmentation_sync
+    label: "Braze — Marketing Segmentation Sync"
+    type: application
+    maturity: high
+    description: >
+      Customer segments and LTV tiers synced into Braze for personalised
+      email and push campaigns. Segments: loyal, at_risk, churned, high_ltv.
+    owner:
+      name: "CRM Marketing"
+      email: "crm@company.com"
+    tags: ["reverse-etl", "braze", "marketing"]
+    depends_on:
+      - ref: dim_customers
+      - ref: fct_customer_ltv
+
+  # ── API / Embedded analytics ───────────────────────────────────────────────
+  - name: merchant_portal_api
+    label: "Merchant Portal — Revenue API"
+    type: application
+    maturity: medium
+    description: >
+      Internal FastAPI service that reads from the finance mart to expose
+      revenue summary endpoints to the merchant-facing portal.
+      Endpoints: /revenue/daily, /revenue/monthly, /products/top.
+    owner:
+      name: "Platform Engineering"
+      email: "platform@company.com"
+    tags: ["api", "portal", "embedded-analytics"]
+    depends_on:
+      - ref: fct_revenue_daily
+      - ref: fct_revenue_monthly
+      - ref: fct_order_items
+      - ref: dim_products
+
+  # ── Alerting ───────────────────────────────────────────────────────────────
+  - name: revenue_anomaly_alerts
+    label: "Monte Carlo — Revenue Anomaly Detection"
+    type: ml
+    maturity: low
+    description: >
+      Monte Carlo data observability monitors watching for revenue anomalies
+      on fct_revenue_daily. Alerts the data team via Slack if daily revenue
+      drops more than 30% below the 7-day moving average.
+    owner:
+      name: "Data Platform"
+      email: "data-platform@company.com"
+    tags: ["observability", "alerting"]
+    depends_on:
+      - ref: fct_revenue_daily

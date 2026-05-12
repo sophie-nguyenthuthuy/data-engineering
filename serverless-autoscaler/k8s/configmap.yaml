@@ -1,0 +1,37 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: job-registry
+  namespace: autoscaler
+data:
+  jobs.yaml: |
+    jobs:
+      - job_id: daily-etl-spark
+        name: "Daily ETL Spark Job"
+        type: spark
+        hpa_target: spark-driver-hpa
+        cron: "0 2 * * *"          # 02:00 UTC daily
+        namespace: spark-jobs
+        tags:
+          team: data-platform
+          tier: critical
+
+      - job_id: hourly-flink-stream
+        name: "Hourly Flink Stream Processor"
+        type: flink
+        hpa_target: flink-taskmanager-hpa
+        cron: "5 * * * *"          # 5 min past every hour
+        namespace: flink-jobs
+        tags:
+          team: streaming
+          tier: high
+
+      - job_id: weekly-batch-spark
+        name: "Weekly Aggregation Spark"
+        type: spark
+        hpa_target: weekly-spark-hpa
+        cron: "0 0 * * 0"          # Sunday midnight
+        namespace: spark-jobs
+        tags:
+          team: analytics
+          tier: medium

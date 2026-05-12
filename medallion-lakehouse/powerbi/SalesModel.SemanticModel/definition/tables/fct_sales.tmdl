@@ -1,0 +1,80 @@
+table fct_sales
+	lineageTag: fct-sales-0001
+
+	column order_id
+		dataType: string
+		sourceColumn: order_id
+		summarizeBy: none
+
+	column customer_sk
+		dataType: string
+		sourceColumn: customer_sk
+		summarizeBy: none
+		isHidden
+
+	column product_sk
+		dataType: string
+		sourceColumn: product_sk
+		summarizeBy: none
+		isHidden
+
+	column date_sk
+		dataType: int64
+		sourceColumn: date_sk
+		summarizeBy: none
+		isHidden
+
+	column order_date
+		dataType: dateTime
+		sourceColumn: order_date
+		summarizeBy: none
+		formatString: yyyy-mm-dd
+
+	column order_status
+		dataType: string
+		sourceColumn: order_status
+		summarizeBy: none
+
+	column quantity
+		dataType: int64
+		sourceColumn: quantity
+		summarizeBy: sum
+		formatString: #,0
+
+	column unit_price
+		dataType: decimal
+		sourceColumn: unit_price
+		summarizeBy: none
+		formatString: \$#,0.00
+
+	column net_amount
+		dataType: decimal
+		sourceColumn: net_amount
+		summarizeBy: sum
+		formatString: \$#,0.00
+
+	measure 'Total Sales' = SUM(fct_sales[net_amount])
+		formatString: \$#,0
+		displayFolder: Sales
+
+	measure 'Order Count' = DISTINCTCOUNT(fct_sales[order_id])
+		formatString: #,0
+		displayFolder: Sales
+
+	measure 'Avg Order Value' = DIVIDE([Total Sales], [Order Count])
+		formatString: \$#,0.00
+		displayFolder: Sales
+
+	measure 'Sales YoY %' =
+		VAR _curr = [Total Sales]
+		VAR _prev = CALCULATE([Total Sales], SAMEPERIODLASTYEAR(dim_date[date]))
+		RETURN DIVIDE(_curr - _prev, _prev)
+		formatString: 0.0%
+		displayFolder: Sales
+
+	partition fct_sales-partition = entity
+		mode: directLake
+		source
+			entityName: fct_sales
+			schemaName: gold
+			expressionSource: 'Sales Lakehouse'

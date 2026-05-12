@@ -1,0 +1,44 @@
+# Core
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+pydantic==2.9.2
+pydantic-settings==2.5.2
+
+# Streaming
+kafka-python==2.0.2
+confluent-kafka==2.5.3
+
+# Validation
+great-expectations==0.18.19
+soda-core==3.3.12
+soda-core-pandas==3.3.12
+
+# Data
+pandas==2.2.3
+numpy==2.1.1
+pyarrow==17.0.0
+
+# Storage
+sqlalchemy==2.0.35
+asyncpg==0.29.0
+alembic==1.13.3
+psycopg2-binary==2.9.9
+
+# Caching / Pub-Sub
+redis==5.1.1
+hiredis==3.0.0
+
+# Async
+aiohttp==3.10.8
+anyio==4.6.0
+
+# Observability
+prometheus-client==0.21.0
+structlog==24.4.0
+
+# Testing
+pytest==8.3.3
+pytest-asyncio==0.24.0
+pytest-mock==3.14.0
+httpx==0.27.2
+faker==30.3.0

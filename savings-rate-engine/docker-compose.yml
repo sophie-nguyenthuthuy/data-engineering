@@ -1,0 +1,28 @@
+version: "3.9"
+
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - rate_data:/app/data
+    env_file: .env
+    environment:
+      - DATABASE_URL=sqlite:////app/data/rates.db
+    restart: unless-stopped
+
+  scheduler:
+    build: .
+    command: ["sre", "schedule", "--interval", "6"]
+    volumes:
+      - rate_data:/app/data
+    env_file: .env
+    environment:
+      - DATABASE_URL=sqlite:////app/data/rates.db
+    depends_on:
+      - api
+    restart: unless-stopped
+
+volumes:
+  rate_data:

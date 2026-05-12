@@ -1,0 +1,99 @@
+version: "3.9"
+
+services:
+  kafka:
+    image: bitnami/kafka:3.6
+    container_name: kafka
+    ports:
+      - "9092:9092"
+      - "9094:9094"
+    environment:
+      - KAFKA_CFG_NODE_ID=1
+      - KAFKA_CFG_PROCESS_ROLES=broker,controller
+      - KAFKA_CFG_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
+      - KAFKA_CFG_LISTENERS=PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
+      - KAFKA_CFG_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092,EXTERNAL://localhost:9094
+      - KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP=PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT
+      - KAFKA_CFG_CONTROLLER_LISTENER_NAMES=CONTROLLER
+      - KAFKA_CFG_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE=false
+      - KAFKA_CFG_LOG_RETENTION_HOURS=2
+    healthcheck:
+      test: ["CMD", "kafka-topics.sh", "--bootstrap-server", "kafka:9092", "--list"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+
+  kafka-setup:
+    image: bitnami/kafka:3.6
+    container_name: kafka-setup
+    depends_on:
+      kafka:
+        condition: service_healthy
+    command: >
+      bash -c "
+        kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic transactions --partitions 4 --replication-factor 1 &&
+        kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic fraud-alerts --partitions 2 --replication-factor 1 &&
+        kafka-topics.sh --bootstrap-server kafka:9092 --create --if-not-exists --topic tx-stats --partitions 2 --replication-factor 1 &&
+        echo 'Topics created successfully'
+      "
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  producer:
+    build: ./producer
+    container_name: tx-producer
+    depends_on:
+      kafka-setup:
+        condition: service_completed_successfully
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - TRANSACTIONS_TOPIC=transactions
+      - TPS=5
+    restart: unless-stopped
+
+  processor:
+    build: ./processor
+    container_name: tx-processor
+    depends_on:
+      kafka-setup:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - INPUT_TOPIC=transactions
+      - ALERTS_TOPIC=fraud-alerts
+      - STATS_TOPIC=tx-stats
+    restart: unless-stopped
+
+  dashboard:
+    build: ./dashboard
+    container_name: tx-dashboard
+    ports:
+      - "8080:8080"
+    depends_on:
+      kafka-setup:
+        condition: service_completed_successfully
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - TRANSACTIONS_TOPIC=transactions
+      - ALERTS_TOPIC=fraud-alerts
+      - STATS_TOPIC=tx-stats
+    restart: unless-stopped
+
+networks:
+  default:
+    name: banking-net

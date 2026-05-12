@@ -1,0 +1,53 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: ankane/pgvector:latest   # PostgreSQL 15 + extras
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: imdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./scripts/init_pg.sql:/docker-entrypoint-initdb.d/01_init.sql
+    command: >
+      postgres
+        -c shared_buffers=2GB
+        -c work_mem=256MB
+        -c maintenance_work_mem=1GB
+        -c max_parallel_workers_per_gather=4
+        -c random_page_cost=1.1
+        -c effective_cache_size=6GB
+        -c enable_seqscan=on
+        -c enable_hashjoin=on
+        -c enable_mergejoin=on
+        -c enable_nestloop=on
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # pg_hint_plan builder (only needed once to install the extension)
+  # Run: docker-compose run --rm hint_plan_installer
+  hint_plan_installer:
+    image: postgres:15
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: postgres
+    entrypoint: |
+      sh -c '
+        apt-get update -q && apt-get install -y -q postgresql-server-dev-15 gcc make git &&
+        git clone https://github.com/ossc-db/pg_hint_plan.git /tmp/pg_hint_plan &&
+        cd /tmp/pg_hint_plan && git checkout PG15 &&
+        make && make install &&
+        psql -h postgres -U postgres -d imdb -c "CREATE EXTENSION IF NOT EXISTS pg_hint_plan;"
+      '
+    profiles: ["hint_plan"]
+
+volumes:
+  pg_data:

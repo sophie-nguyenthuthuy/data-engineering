@@ -1,0 +1,87 @@
+version: 2
+
+models:
+  - name: stg_orders
+    description: Cleaned and typed orders from the ecommerce platform.
+    columns:
+      - name: order_id
+        tests: [unique, not_null]
+      - name: customer_id
+        tests: [not_null]
+      - name: order_status
+        tests:
+          - accepted_values:
+              values: [placed, pending, processing, shipped, delivered, cancelled, returned, refunded]
+      - name: order_amount_usd
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: ">= 0"
+      - name: ordered_at
+        tests: [not_null]
+      - name: is_cancelled
+      - name: is_returned
+
+  - name: stg_customers
+    description: Cleaned customer records.
+    columns:
+      - name: customer_id
+        tests: [unique, not_null]
+      - name: email
+        tests: [unique, not_null]
+      - name: country_code
+      - name: acquisition_channel
+      - name: first_seen_at
+        tests: [not_null]
+
+  - name: stg_products
+    description: Cleaned product catalog.
+    columns:
+      - name: product_id
+        tests: [unique, not_null]
+      - name: sku
+        tests: [unique, not_null]
+      - name: product_name
+        tests: [not_null]
+      - name: category
+      - name: subcategory
+      - name: cost_price_usd
+      - name: list_price_usd
+      - name: is_active
+
+  - name: stg_order_items
+    description: Cleaned order line items.
+    columns:
+      - name: order_item_id
+        tests: [unique, not_null]
+      - name: order_id
+        tests: [not_null]
+      - name: product_id
+        tests: [not_null]
+      - name: quantity
+      - name: unit_price_usd
+      - name: discount_amount_usd
+      - name: line_total_usd
+
+  - name: stg_events
+    description: Cleaned behavioural events.
+    columns:
+      - name: event_id
+        tests: [unique, not_null]
+      - name: session_id
+      - name: customer_id
+      - name: event_type
+      - name: occurred_at
+        tests: [not_null]
+
+  - name: stg_campaigns
+    description: Cleaned marketing campaigns.
+    columns:
+      - name: campaign_id
+        tests: [unique, not_null]
+      - name: campaign_name
+      - name: channel
+      - name: start_date
+      - name: end_date
+      - name: budget_usd
+      - name: spend_usd

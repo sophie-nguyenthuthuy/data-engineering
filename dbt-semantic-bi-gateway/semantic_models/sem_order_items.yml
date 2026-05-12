@@ -1,0 +1,95 @@
+version: 2
+
+semantic_models:
+  - name: order_items
+    description: >
+      Semantic model over fct_order_items.
+      Enables product-level revenue, margin, and units-sold analysis
+      joinable to the orders semantic model via the order entity.
+    model: ref('fct_order_items')
+    defaults:
+      agg_time_dimension: order_date
+
+    entities:
+      - name: order_item
+        type: primary
+        expr: order_item_id
+
+      - name: order
+        type: foreign
+        expr: order_id
+
+      - name: product
+        type: foreign
+        expr: product_id
+
+      - name: customer
+        type: foreign
+        expr: customer_id
+
+    dimensions:
+      - name: order_date
+        type: time
+        type_params:
+          time_granularity: day
+
+      - name: category
+        type: categorical
+        description: Top-level product category.
+
+      - name: subcategory
+        type: categorical
+
+      - name: brand
+        type: categorical
+
+      - name: is_digital
+        type: categorical
+        description: True for digital / downloadable products.
+
+      - name: is_cancelled
+        type: categorical
+
+      - name: is_returned
+        type: categorical
+
+    measures:
+      - name: items_sold
+        description: Total number of line items sold.
+        agg: count
+        expr: order_item_id
+
+      - name: units_sold
+        description: Sum of quantities sold across all line items.
+        agg: sum
+        expr: quantity
+
+      - name: item_gross_revenue
+        description: Gross revenue from line items before discounts.
+        agg: sum
+        expr: gross_line_total_usd
+
+      - name: item_net_revenue
+        description: Net line item revenue after discounts.
+        agg: sum
+        expr: net_line_total_usd
+
+      - name: cogs
+        description: Total cost of goods sold.
+        agg: sum
+        expr: cogs_usd
+
+      - name: gross_profit
+        description: Gross profit (net revenue minus COGS).
+        agg: sum
+        expr: gross_profit_usd
+
+      - name: item_discount_amount
+        description: Total discounts applied at line-item level.
+        agg: sum
+        expr: discount_amount_usd
+
+      - name: avg_unit_price
+        description: Average unit price across all items sold.
+        agg: average
+        expr: unit_price_usd

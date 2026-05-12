@@ -1,0 +1,9 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: "dq_monitor"
+    static_configs:
+      - targets: ["dq-monitor:8000"]
+    metrics_path: /metrics

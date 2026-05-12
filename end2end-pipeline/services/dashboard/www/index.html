@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pipeline Analytics</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Pipeline Analytics</h1>
+      <div id="health" class="health pending">checking…</div>
+    </header>
+
+    <section class="summary">
+      <h2>Last <span id="window-label">5</span>-minute summary</h2>
+      <div class="cards">
+        <div class="card"><div class="k">Total events</div><div class="v" id="total-events">—</div></div>
+        <div class="card"><div class="k">Error rate</div><div class="v" id="error-rate">—</div></div>
+        <div class="card"><div class="k">Last updated</div><div class="v" id="updated">—</div></div>
+      </div>
+      <table id="by-type">
+        <thead>
+          <tr><th>Event type</th><th>Events</th><th>Errors</th><th>Error rate</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section class="timeline">
+      <h2>Per-minute events (last 15 min)</h2>
+      <table id="minutes">
+        <thead>
+          <tr><th>Minute (UTC)</th><th>Event type</th><th>Status</th><th>Events</th><th>Avg ms</th><th>P95 ms</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

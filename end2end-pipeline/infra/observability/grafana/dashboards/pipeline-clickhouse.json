@@ -1,0 +1,94 @@
+{
+  "title": "Pipeline — ClickHouse",
+  "uid": "pipeline-clickhouse",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "time": {"from": "now-30m", "to": "now"},
+  "refresh": "10s",
+  "tags": ["pipeline", "clickhouse"],
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Inserted rows /s",
+      "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "rate(ClickHouseProfileEvents_InsertedRows[1m])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "rowsps"}}
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Inserted bytes /s",
+      "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "rate(ClickHouseProfileEvents_InsertedBytes[1m])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "Bps"}}
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "SELECT queries /s",
+      "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "rate(ClickHouseProfileEvents_SelectQuery[1m])",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "qps"}}
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Active parts (MergeTree)",
+      "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "ClickHouseMetrics_PartsActive",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Merges running",
+      "gridPos": {"x": 0, "y": 16, "w": 12, "h": 8},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "ClickHouseMetrics_Merge",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Memory used",
+      "gridPos": {"x": 12, "y": 16, "w": 12, "h": 8},
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "targets": [
+        {
+          "expr": "ClickHouseAsyncMetrics_MemoryResident",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "bytes"}}
+    }
+  ]
+}

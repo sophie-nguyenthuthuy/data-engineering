@@ -1,0 +1,75 @@
+syntax = "proto3";
+
+package compaction;
+
+option go_package = "github.com/lsm-remote-compaction/pkg/rpc";
+
+// CompactionService is implemented by remote compaction workers.
+// Local LSM nodes act as clients: they ship SSTable data, the worker
+// merges it, and a quorum commit gates the final apply.
+service CompactionService {
+  // SubmitCompaction begins an async compaction job on the worker.
+  rpc SubmitCompaction(CompactionRequest) returns (CompactionResponse);
+
+  // GetStatus polls a previously submitted job.
+  rpc GetStatus(StatusRequest) returns (StatusResponse);
+
+  // AcknowledgeCompaction is called peer-to-peer during quorum commit.
+  // Each replica calls the leader to cast its vote.
+  rpc AcknowledgeCompaction(AckRequest) returns (AckResponse);
+
+  // CommitCompaction finalises a completed job after quorum is reached.
+  rpc CommitCompaction(CommitRequest) returns (CommitResponse);
+}
+
+message SSTFile {
+  string path   = 1; // logical path (used as unique key)
+  bytes  data   = 2; // full SSTable bytes shipped inline
+  int32  level  = 3;
+}
+
+message CompactionRequest {
+  string         compaction_id   = 1;
+  repeated SSTFile input_files   = 2;
+  int32          target_level    = 3;
+  // Addresses of all quorum peers the worker must contact for commit.
+  repeated string peer_addresses = 4;
+  // Minimum acknowledgements needed (including the worker itself).
+  int32           quorum_size    = 5;
+}
+
+message CompactionResponse {
+  string compaction_id = 1;
+  string status        = 2; // "accepted" | "error"
+  string error         = 3;
+}
+
+message StatusRequest {
+  string compaction_id = 1;
+}
+
+message StatusResponse {
+  string  compaction_id = 1;
+  string  status        = 2; // "running" | "done" | "error"
+  SSTFile output_file   = 3;
+  string  error         = 4;
+}
+
+message AckRequest {
+  string compaction_id = 1;
+  string node_id       = 2;
+}
+
+message AckResponse {
+  bool ok    = 1;
+  string error = 2;
+}
+
+message CommitRequest {
+  string compaction_id = 1;
+}
+
+message CommitResponse {
+  bool   committed = 1;
+  string error     = 2;
+}

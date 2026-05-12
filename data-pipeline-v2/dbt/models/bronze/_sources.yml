@@ -1,0 +1,31 @@
+version: 2
+
+sources:
+  - name: raw
+    schema: raw
+    description: "Landing zone written by Airflow from the mock API"
+    loaded_at_field: _ingested_at
+    freshness:
+      warn_after: {count: 1, period: hour}
+      error_after: {count: 6, period: hour}
+    tables:
+      - name: customers
+        columns:
+          - name: id
+            tests: [not_null, unique]
+      - name: products
+        columns:
+          - name: id
+            tests: [not_null, unique]
+          - name: sku
+            tests: [not_null]
+      - name: orders
+        columns:
+          - name: id
+            tests: [not_null, unique]
+          - name: customer_id
+            tests: [not_null]
+          - name: product_id
+            tests: [not_null]
+          - name: updated_at
+            tests: [not_null]

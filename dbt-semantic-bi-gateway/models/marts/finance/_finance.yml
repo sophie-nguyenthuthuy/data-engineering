@@ -1,0 +1,18 @@
+version: 2
+
+models:
+  - name: fct_revenue_daily
+    description: >
+      Grain: one row per calendar date.
+      Daily revenue, order volume, and margin summary for finance reporting.
+    columns:
+      - name: date_day
+        tests: [unique, not_null]
+
+  - name: fct_revenue_monthly
+    description: >
+      Grain: one row per month.
+      Monthly P&L summary including MoM and YoY growth rates.
+    columns:
+      - name: month_start_date
+        tests: [unique, not_null]

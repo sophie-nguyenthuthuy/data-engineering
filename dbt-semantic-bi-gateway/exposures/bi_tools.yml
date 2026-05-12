@@ -1,0 +1,146 @@
+version: 2
+
+exposures:
+  # ── Tableau ────────────────────────────────────────────────────────────────
+  - name: tableau_revenue_dashboard
+    label: "Tableau — Revenue & Orders Dashboard"
+    type: dashboard
+    maturity: high
+    description: >
+      Executive revenue dashboard in Tableau Server showing daily/monthly
+      revenue trends, AOV, top products, and geographic breakdown.
+      Queries the semantic layer via the dbt Semantic Layer JDBC connector.
+    owner:
+      name: "Analytics Engineering"
+      email: "analytics@company.com"
+    url: "https://tableau.company.com/views/RevenueAnalytics/Overview"
+    tags: ["tableau", "finance", "executive"]
+    depends_on:
+      - metric: total_net_revenue
+      - metric: total_orders
+      - metric: avg_order_value
+      - metric: gross_margin_rate
+      - metric: cumulative_revenue_ytd
+      - ref: fct_orders
+      - ref: dim_dates
+      - ref: dim_products
+
+  - name: tableau_product_performance
+    label: "Tableau — Product Performance Workbook"
+    type: dashboard
+    maturity: high
+    description: >
+      Product-level revenue, margin, and sell-through analysis.
+      Used by the merchandising team for weekly trading reviews.
+    owner:
+      name: "Merchandising Analytics"
+      email: "merch-analytics@company.com"
+    url: "https://tableau.company.com/views/ProductPerformance/Overview"
+    tags: ["tableau", "product", "merchandising"]
+    depends_on:
+      - metric: total_product_revenue
+      - metric: total_units_sold
+      - metric: product_gross_margin_rate
+      - metric: total_cogs
+      - ref: fct_order_items
+      - ref: dim_products
+
+  # ── Looker ─────────────────────────────────────────────────────────────────
+  - name: looker_ecommerce_explore
+    label: "Looker — Ecommerce Explore"
+    type: analysis
+    maturity: high
+    description: >
+      Looker Explore exposing all mart tables to the business for ad-hoc
+      analysis. Uses LookML model that directly references the mart tables.
+      The Semantic Layer metrics are also surfaced via the Looker × dbt
+      Semantic Layer connector.
+    owner:
+      name: "Data Platform"
+      email: "data-platform@company.com"
+    url: "https://company.looker.com/explore/ecommerce/fct_orders"
+    tags: ["looker", "self-serve"]
+    depends_on:
+      - ref: fct_orders
+      - ref: fct_order_items
+      - ref: dim_customers
+      - ref: dim_products
+      - ref: dim_dates
+      - ref: fct_customer_ltv
+      - ref: fct_campaign_performance
+
+  - name: looker_customer_360
+    label: "Looker — Customer 360 Explore"
+    type: analysis
+    maturity: medium
+    description: >
+      Customer-centric explore for CRM, LTV, cohort, and churn analysis.
+      Used by the growth and retention teams.
+    owner:
+      name: "Growth Analytics"
+      email: "growth@company.com"
+    url: "https://company.looker.com/explore/ecommerce/dim_customers"
+    tags: ["looker", "crm", "retention"]
+    depends_on:
+      - metric: avg_customer_ltv
+      - metric: customer_churn_rate
+      - metric: customer_conversion_rate
+      - ref: dim_customers
+      - ref: fct_customer_ltv
+
+  # ── Metabase ───────────────────────────────────────────────────────────────
+  - name: metabase_operations_dashboard
+    label: "Metabase — Operations Dashboard"
+    type: dashboard
+    maturity: medium
+    description: >
+      Lightweight operational dashboard in Metabase for the ops team.
+      Tracks daily orders, fulfilment SLAs, and return rates.
+      Connects directly to the mart tables (no semantic layer).
+    owner:
+      name: "Operations"
+      email: "ops@company.com"
+    url: "https://metabase.company.com/dashboard/42"
+    tags: ["metabase", "operations"]
+    depends_on:
+      - ref: fct_orders
+      - ref: fct_revenue_daily
+
+  # ── Power BI ───────────────────────────────────────────────────────────────
+  - name: powerbi_finance_report
+    label: "Power BI — Finance Monthly Report"
+    type: dashboard
+    maturity: high
+    description: >
+      Monthly finance report in Power BI connected via DirectQuery to the
+      finance mart. Includes P&L summary, MoM/YoY growth, and budget variance.
+    owner:
+      name: "Finance"
+      email: "finance@company.com"
+    url: "https://app.powerbi.com/groups/finance/reports/monthly-pnl"
+    tags: ["powerbi", "finance"]
+    depends_on:
+      - ref: fct_revenue_daily
+      - ref: fct_revenue_monthly
+      - metric: total_net_revenue
+      - metric: gross_margin_rate
+      - metric: cumulative_revenue_ytd
+
+  # ── Jupyter / Python analytics ─────────────────────────────────────────────
+  - name: python_cohort_analysis
+    label: "Python — Cohort Retention Analysis Notebook"
+    type: notebook
+    maturity: medium
+    description: >
+      Jupyter notebook running cohort retention analysis on the customer LTV
+      mart. Outputs a retention heatmap and predicted churn probabilities.
+    owner:
+      name: "Data Science"
+      email: "datascience@company.com"
+    url: "https://github.com/company/analytics-notebooks/blob/main/cohort_analysis.ipynb"
+    tags: ["python", "data-science", "retention"]
+    depends_on:
+      - ref: fct_customer_ltv
+      - ref: dim_customers
+      - metric: avg_customer_ltv
+      - metric: customer_churn_rate

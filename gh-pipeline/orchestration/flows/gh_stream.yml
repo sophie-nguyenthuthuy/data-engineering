@@ -1,0 +1,35 @@
+id: gh_stream
+namespace: gh_pipeline
+description: |
+  Long-running streaming: GitHub Events API → Kafka → GCS.
+  Runs indefinitely; Kestra monitors and restarts on failure.
+
+tasks:
+  - id: producer
+    type: io.kestra.plugin.scripts.python.Commands
+    description: "GitHub /events → Kafka topic gh_events"
+    docker:
+      image: python:3.11-slim
+    beforeCommands:
+      - pip install -q -r /app/flows/../../streaming/requirements.txt
+    env:
+      GITHUB_TOKEN: "{{ secret('GITHUB_TOKEN') }}"
+      KAFKA_BOOTSTRAP: "kafka:9092"
+      KAFKA_TOPIC: "gh_events"
+    commands:
+      - python /app/flows/../../streaming/producer.py
+
+  - id: consumer
+    type: io.kestra.plugin.scripts.python.Commands
+    description: "Kafka → GCS (jsonl, one file per 5-min window)"
+    docker:
+      image: python:3.11-slim
+    beforeCommands:
+      - pip install -q -r /app/flows/../../streaming/requirements.txt
+    env:
+      GOOGLE_APPLICATION_CREDENTIALS: /app/flows/../../infra/terraform/sa-key.json
+      KAFKA_BOOTSTRAP: "kafka:9092"
+      KAFKA_TOPIC: "gh_events"
+      GCS_BUCKET: "{{ vars.gcs_bucket }}"
+    commands:
+      - python /app/flows/../../streaming/consumer.py

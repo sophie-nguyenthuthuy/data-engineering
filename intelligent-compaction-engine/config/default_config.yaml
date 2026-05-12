@@ -1,0 +1,49 @@
+engine:
+  # Target file size for compaction (128 MB)
+  target_file_size_mb: 128
+  # Minimum number of small files to trigger compaction
+  small_file_threshold: 10
+  # Files smaller than this (MB) are considered "small"
+  small_file_size_mb: 32
+  # Maximum Z-order columns to recommend
+  max_zorder_columns: 4
+  # Minimum query frequency to consider a column for Z-ordering
+  min_column_query_frequency: 3
+
+scheduler:
+  # Cron expression for compaction jobs (default: 2 AM daily)
+  compaction_cron: "0 2 * * *"
+  # Cron expression for pruning jobs (default: 3 AM Sunday)
+  pruning_cron: "0 3 * * 0"
+  # Maximum concurrent compaction jobs
+  max_concurrent_jobs: 2
+  # Timeout per job in minutes
+  job_timeout_minutes: 120
+
+pruning:
+  # Partitions not accessed in this many days are pruning candidates
+  stale_partition_days: 365
+  # Partitions older than this many days are archived automatically
+  auto_archive_days: 730
+  # Whether to actually delete or just mark for review
+  dry_run: false
+
+metrics:
+  # Prometheus metrics port
+  prometheus_port: 8000
+  # How many benchmark query runs to average
+  benchmark_runs: 3
+  # SQLite path for storing query patterns and metrics history
+  db_path: "compaction_metrics.db"
+
+spark:
+  app_name: "IntelligentCompactionEngine"
+  # Delta Lake specific settings
+  delta:
+    spark.sql.extensions: "io.delta.sql.DeltaSparkSessionExtension"
+    spark.sql.catalog.spark_catalog: "org.apache.spark.sql.delta.catalog.DeltaCatalog"
+  # Iceberg specific settings
+  iceberg:
+    spark.sql.extensions: "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions"
+    spark.sql.catalog.spark_catalog: "org.apache.iceberg.spark.SparkSessionCatalog"
+    spark.sql.catalog.spark_catalog.type: "hive"

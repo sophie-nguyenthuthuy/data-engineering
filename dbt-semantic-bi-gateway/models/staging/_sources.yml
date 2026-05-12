@@ -1,0 +1,129 @@
+version: 2
+
+sources:
+  - name: ecommerce_raw
+    description: >
+      Raw event and transactional data ingested from the ecommerce platform
+      via Fivetran / Airbyte into the warehouse landing zone.
+    database: "{{ env_var('RAW_DATABASE', 'analytics') }}"
+    schema: raw_ecommerce
+    loaded_at_field: _loaded_at
+    freshness:
+      warn_after: { count: 12, period: hour }
+      error_after: { count: 24, period: hour }
+
+    tables:
+      - name: orders
+        description: One row per customer order placed on the platform.
+        columns:
+          - name: id
+            description: Surrogate primary key for the order.
+            tests: [unique, not_null]
+          - name: customer_id
+            tests: [not_null]
+          - name: status
+            tests:
+              - accepted_values:
+                  values: [placed, pending, processing, shipped, delivered, cancelled, returned, refunded]
+          - name: currency
+            tests: [not_null]
+          - name: amount
+            description: Gross order amount in the order currency.
+            tests:
+              - not_null
+              - dbt_utils.expression_is_true:
+                  expression: ">= 0"
+          - name: created_at
+            tests: [not_null]
+          - name: updated_at
+
+      - name: customers
+        description: Customer master data.
+        columns:
+          - name: id
+            tests: [unique, not_null]
+          - name: email
+            tests: [unique, not_null]
+          - name: created_at
+            tests: [not_null]
+          - name: country_code
+          - name: acquisition_channel
+            tests:
+              - accepted_values:
+                  values: [organic, paid_search, paid_social, email, referral, direct, affiliate]
+
+      - name: products
+        description: Product catalog.
+        columns:
+          - name: id
+            tests: [unique, not_null]
+          - name: sku
+            tests: [unique, not_null]
+          - name: name
+            tests: [not_null]
+          - name: category
+          - name: subcategory
+          - name: cost_price
+          - name: list_price
+          - name: is_active
+          - name: created_at
+            tests: [not_null]
+
+      - name: order_items
+        description: Line items within each order (many-to-one with orders).
+        columns:
+          - name: id
+            tests: [unique, not_null]
+          - name: order_id
+            tests: [not_null]
+          - name: product_id
+            tests: [not_null]
+          - name: quantity
+            tests:
+              - not_null
+              - dbt_utils.expression_is_true:
+                  expression: "> 0"
+          - name: unit_price
+            tests: [not_null]
+          - name: discount_amount
+
+      - name: events
+        description: >
+          Raw clickstream and behavioural events (page views, add-to-cart,
+          checkout steps, etc.) from the front-end analytics SDK.
+        columns:
+          - name: id
+            tests: [unique, not_null]
+          - name: session_id
+          - name: customer_id
+          - name: event_type
+          - name: page_url
+          - name: occurred_at
+            tests: [not_null]
+          - name: properties
+
+  - name: crm_raw
+    description: Raw CRM data ingested from Salesforce / HubSpot.
+    schema: raw_crm
+
+    tables:
+      - name: campaigns
+        description: Marketing campaigns.
+        columns:
+          - name: id
+            tests: [unique, not_null]
+          - name: name
+          - name: channel
+          - name: start_date
+          - name: end_date
+          - name: budget_usd
+          - name: spend_usd
+
+      - name: campaign_attribution
+        description: Order-to-campaign attribution (last-touch model).
+        columns:
+          - name: order_id
+            tests: [not_null]
+          - name: campaign_id
+            tests: [not_null]
+          - name: attributed_at

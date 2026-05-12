@@ -1,0 +1,14 @@
+pyspark==3.5.1
+delta-spark==3.1.0
+pyiceberg[s3,glue]==0.7.1
+apache-airflow==2.9.1
+apache-airflow-providers-apache-spark==4.8.0
+boto3>=1.34
+pyarrow>=14.0
+pandas>=2.1
+great-expectations>=0.18
+pyyaml>=6.0
+python-dotenv>=1.0
+structlog>=24.1
+pytest>=8.0
+pytest-spark>=0.6

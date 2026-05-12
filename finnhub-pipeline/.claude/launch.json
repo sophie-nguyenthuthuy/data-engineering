@@ -1,0 +1,13 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "frontend",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--", "--host", "--port", "5173"],
+      "cwd": "frontend",
+      "env": { "VITE_API_URL": "http://localhost:8000" },
+      "port": 5173
+    }
+  ]
+}

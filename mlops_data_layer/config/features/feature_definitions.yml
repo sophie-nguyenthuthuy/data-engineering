@@ -1,0 +1,102 @@
+features:
+  # ── Customer features ─────────────────────────────────────────────────────
+  - name: customer_age
+    feature_type: numerical
+    description: "Age of the customer in years"
+    nullable: false
+    min_value: 0
+    max_value: 120
+    tags:
+      domain: customer
+      pii: "false"
+
+  - name: customer_tenure_days
+    feature_type: numerical
+    description: "Days since the customer first signed up"
+    nullable: true
+    min_value: 0
+    tags:
+      domain: customer
+
+  - name: customer_segment
+    feature_type: categorical
+    description: "Marketing segment"
+    nullable: false
+    allowed_values: [bronze, silver, gold, platinum]
+    tags:
+      domain: customer
+
+  - name: country_code
+    feature_type: categorical
+    description: "ISO 3166-1 alpha-2 country code"
+    nullable: true
+    tags:
+      domain: customer
+      pii: "true"
+
+  # ── Transaction features ──────────────────────────────────────────────────
+  - name: txn_amount
+    feature_type: numerical
+    description: "Transaction amount in USD"
+    nullable: false
+    min_value: 0.0
+    max_value: 1000000.0
+    tags:
+      domain: transaction
+
+  - name: txn_count_7d
+    feature_type: numerical
+    description: "Number of transactions in the last 7 days"
+    nullable: true
+    min_value: 0
+    tags:
+      domain: transaction
+
+  - name: txn_count_30d
+    feature_type: numerical
+    description: "Number of transactions in the last 30 days"
+    nullable: true
+    min_value: 0
+    tags:
+      domain: transaction
+
+  - name: avg_txn_amount_30d
+    feature_type: numerical
+    description: "Average transaction amount over last 30 days"
+    nullable: true
+    min_value: 0.0
+    tags:
+      domain: transaction
+
+  - name: txn_channel
+    feature_type: categorical
+    description: "Channel through which the transaction was made"
+    nullable: false
+    allowed_values: [web, mobile, pos, api]
+    tags:
+      domain: transaction
+
+  # ── Risk / model features ─────────────────────────────────────────────────
+  - name: risk_score
+    feature_type: numerical
+    description: "Pre-computed risk score (0–1)"
+    nullable: true
+    min_value: 0.0
+    max_value: 1.0
+    tags:
+      domain: risk
+
+  - name: is_high_value
+    feature_type: boolean
+    description: "Whether the customer is classified as high-value"
+    nullable: true
+    tags:
+      domain: risk
+
+  - name: days_since_last_login
+    feature_type: numerical
+    description: "Days since the customer last logged in"
+    nullable: true
+    min_value: 0
+    tags:
+      domain: engagement

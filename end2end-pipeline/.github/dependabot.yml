@@ -1,0 +1,62 @@
+# Dependabot: weekly PRs for pinned dependencies. Grouped per service so
+# a single bump (e.g. OTel's quarterly cross-package release) doesn't
+# explode into N separate PRs.
+
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: pip
+    directory: /services/producer
+    schedule:
+      interval: weekly
+    groups:
+      otel:
+        patterns: ["opentelemetry-*"]
+      dev:
+        dependency-type: development
+
+  - package-ecosystem: pip
+    directory: /services/api
+    schedule:
+      interval: weekly
+    groups:
+      otel:
+        patterns: ["opentelemetry-*"]
+      dev:
+        dependency-type: development
+
+  - package-ecosystem: pip
+    directory: /services/orchestrator
+    schedule:
+      interval: weekly
+    groups:
+      otel:
+        patterns: ["opentelemetry-*"]
+      dagster:
+        patterns: ["dagster*"]
+      dev:
+        dependency-type: development
+
+  - package-ecosystem: docker
+    directory: /services/producer
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker
+    directory: /services/api
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker
+    directory: /services/orchestrator
+    schedule:
+      interval: weekly
+  - package-ecosystem: docker
+    directory: /infra/kafka-connect
+    schedule:
+      interval: weekly

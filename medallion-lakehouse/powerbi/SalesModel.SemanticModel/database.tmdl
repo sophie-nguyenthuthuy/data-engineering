@@ -1,0 +1,41 @@
+database SalesModel
+	compatibilityLevel: 1567
+
+model Model
+	culture: en-US
+	defaultPowerBIDataSourceVersion: powerBI_V3
+	discourageImplicitMeasures
+	sourceQueryCulture: en-US
+
+	annotation PBI_QueryOrder = ["fct_sales","dim_customer","dim_product","dim_date"]
+
+	ref table dim_date
+	ref table dim_customer
+	ref table dim_product
+	ref table fct_sales
+
+	ref role Viewer
+	ref role PII_Reader
+
+	relationship fct_sales_to_dim_date
+		fromColumn: fct_sales.date_sk
+		toColumn: dim_date.date_sk
+		crossFilteringBehavior: oneDirection
+
+	relationship fct_sales_to_dim_customer
+		fromColumn: fct_sales.customer_sk
+		toColumn: dim_customer.customer_sk
+		crossFilteringBehavior: oneDirection
+
+	relationship fct_sales_to_dim_product
+		fromColumn: fct_sales.product_sk
+		toColumn: dim_product.product_sk
+		crossFilteringBehavior: oneDirection
+
+role Viewer
+	modelPermission: read
+
+	tablePermission dim_customer = "[email] <> \"\""  /* mask: non-PII default */
+
+role PII_Reader
+	modelPermission: read

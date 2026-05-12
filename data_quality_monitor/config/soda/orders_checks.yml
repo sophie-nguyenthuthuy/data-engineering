@@ -1,0 +1,45 @@
+checks for orders:
+
+  # ── Row count ──────────────────────────────────────────────────────────────
+  - row_count:
+      name: "Batch is not empty"
+      fail: when < 1
+      warn: when > 500000
+
+  # ── Completeness ──────────────────────────────────────────────────────────
+  - missing_count(order_id) = 0:
+      name: "order_id has no nulls"
+
+  - missing_count(customer_id) = 0:
+      name: "customer_id has no nulls"
+
+  - missing_count(amount) = 0:
+      name: "amount has no nulls"
+
+  - missing_count(status) = 0:
+      name: "status has no nulls"
+
+  - missing_count(created_at) = 0:
+      name: "created_at has no nulls"
+
+  # ── Uniqueness ────────────────────────────────────────────────────────────
+  - duplicate_count(order_id) = 0:
+      name: "order_id is unique"
+
+  # ── Validity ──────────────────────────────────────────────────────────────
+  - invalid_count(status):
+      name: "status in allowed set"
+      valid values: [pending, confirmed, shipped, delivered, cancelled]
+      fail: when > 0
+
+  - min(amount) >= 0.01:
+      name: "amount is positive"
+
+  - max(amount) <= 1000000:
+      name: "amount within upper bound"
+
+  # ── Freshness ─────────────────────────────────────────────────────────────
+  - freshness(created_at) < 2h:
+      name: "Records are recent"
+      warn: when between 1h and 2h
+      fail: when > 2h

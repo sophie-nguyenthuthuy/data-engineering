@@ -1,0 +1,114 @@
+# Incident Report — {{ report.incident_id }}
+
+**Generated:** {{ report.generated_at.strftime('%Y-%m-%d %H:%M UTC') }}
+**Metric:** `{{ report.degradation.metric_name }}`
+**Degradation type:** {{ report.degradation.kind.value | upper }}
+**Detected at:** {{ report.degradation.detected_at.strftime('%Y-%m-%d %H:%M UTC') }}
+
+---
+
+## Summary
+
+{% set pct = (report.degradation.relative_change * 100) | round(1) %}
+{% if report.degradation.relative_change < 0 -%}
+The metric **`{{ report.degradation.metric_name }}`** dropped by **{{ pct | abs }}%**
+(from {{ report.degradation.baseline_value | round(2) }} to {{ report.degradation.observed_value | round(2) }}).
+{%- else -%}
+The metric **`{{ report.degradation.metric_name }}`** spiked by **{{ pct }}%**
+(from {{ report.degradation.baseline_value | round(2) }} to {{ report.degradation.observed_value | round(2) }}).
+{%- endif %}
+
+{{ report.narrative }}
+
+---
+
+## Top Root Causes
+
+{% if report.top_causes %}
+| # | Candidate | Effect | p-value | Significant? | Kind |
+|---|-----------|--------|---------|--------------|------|
+{% for cause in report.top_causes -%}
+| {{ loop.index }} | `{{ cause.candidate }}` | {{ (cause.effect_size * 100) | round(1) }}% | {% if cause.p_value != cause.p_value %}N/A{% else %}{{ cause.p_value | round(4) }}{% endif %} | {{ '✓' if cause.is_significant else '—' }} | {{ cause.change.kind.value if cause.change else 'unknown' }} |
+{% endfor %}
+{% else %}
+No statistically significant root causes identified. The degradation may stem from
+external factors not captured in the lineage graph.
+{% endif %}
+
+---
+
+## Detailed Analysis
+
+{% for cause in report.top_causes %}
+### {{ loop.index }}. `{{ cause.candidate }}`
+
+{% if cause.change %}
+- **Table:** `{{ cause.change.table }}`
+- **Column:** `{{ cause.change.column if cause.change.column else 'N/A' }}`
+- **Change type:** {{ cause.change.kind.value }}
+- **Occurred at:** {{ cause.change.occurred_at.strftime('%Y-%m-%d %H:%M UTC') }}
+{% if cause.change.details %}
+- **Details:** {{ cause.change.details }}
+{% endif %}
+{% endif %}
+
+- **Relative effect:** {{ (cause.effect_size * 100) | round(1) }}%
+- **Absolute effect:** {{ cause.absolute_effect | round(2) }}
+- **p-value:** {% if cause.p_value != cause.p_value %}N/A (no schema change log){% else %}{{ cause.p_value | round(4) }}{% endif %}
+- **95% CI:** {% if cause.confidence_interval[0] != cause.confidence_interval[0] %}N/A{% else %}[{{ cause.confidence_interval[0] | round(2) }}, {{ cause.confidence_interval[1] | round(2) }}]{% endif %}
+- **Statistically significant:** {{ 'Yes' if cause.is_significant else 'No' }}
+
+{% if cause.counterfactual %}
+> The ITS model predicts the metric **would have averaged
+> {{ (cause.counterfactual | map(attribute='value') | list | avg) | round(2) }}**
+> in the post-change period without the intervention, vs the observed
+> **{{ report.degradation.observed_value | round(2) }}**.
+{% endif %}
+
+{% endfor %}
+
+---
+
+## All Evaluated Candidates
+
+| Candidate | Effect | p-value | Significant? |
+|-----------|--------|---------|--------------|
+{% for cause in report.all_candidates -%}
+| `{{ cause.candidate }}` | {{ (cause.effect_size * 100) | round(1) }}% | {% if cause.p_value != cause.p_value %}N/A{% else %}{{ cause.p_value | round(4) }}{% endif %} | {{ 'Yes' if cause.is_significant else 'No' }} |
+{% endfor %}
+
+---
+
+## Recommended Actions
+
+{% for cause in report.top_causes if cause.is_significant %}
+{% if cause.change %}
+{% if cause.change.kind.value == 'column_dropped' %}
+- **[CRITICAL]** Column `{{ cause.change.column }}` was dropped from `{{ cause.change.table }}`.
+  Restore it or update all downstream queries that reference it.
+{% elif cause.change.kind.value == 'type_changed' %}
+- **[HIGH]** Column `{{ cause.change.column }}` in `{{ cause.change.table }}` changed type
+  ({{ cause.change.details.get('from', '?') }} → {{ cause.change.details.get('to', '?') }}).
+  Validate downstream casts and aggregations.
+{% elif cause.change.kind.value == 'column_added' %}
+- **[MEDIUM]** New column `{{ cause.change.column }}` in `{{ cause.change.table }}`.
+  Check whether NULL defaults are causing incorrect aggregations.
+{% elif cause.change.kind.value == 'pipeline_failure' %}
+- **[HIGH]** Pipeline failure on `{{ cause.change.table }}`. Re-run the failed job and
+  verify data completeness.
+{% elif cause.change.kind.value == 'late_data' %}
+- **[MEDIUM]** Late data detected in `{{ cause.change.table }}`. Trigger a backfill for the
+  affected partition window.
+{% elif cause.change.kind.value == 'volume_anomaly' %}
+- **[MEDIUM]** Volume anomaly in `{{ cause.change.table }}`. Investigate the source
+  system for upstream data drops.
+{% endif %}
+{% endif %}
+{% else %}
+- Investigate recent deployments and external data sources manually.
+- Consider adding more granular lineage tracking for `{{ report.degradation.metric_name }}`.
+{% endfor %}
+
+---
+
+*Generated by [pipeline-rca](https://github.com/pipeline-rca) · Incident {{ report.incident_id }}*

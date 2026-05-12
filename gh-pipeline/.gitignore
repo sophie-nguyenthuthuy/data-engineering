@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyc
+.venv/
+.env
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
+!*.tfvars.example
+.terraform.lock.hcl
+
+# dbt
+target/
+dbt_packages/
+logs/
+.user.yml
+
+# Data
+*.parquet
+*.csv
+*.json.gz
+data/
+
+# dlt
+.dlt/secrets.toml
+.dlt/config.toml
+!.dlt/config.toml.example
+
+# Secrets / credentials
+*.key
+*.pem
+service-account*.json
+credentials*.json

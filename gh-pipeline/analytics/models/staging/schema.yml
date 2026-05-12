@@ -1,0 +1,18 @@
+version: 2
+
+models:
+  - name: stg_events
+    description: "Flattened GH Archive events, one row per event, windowed by start_date/end_date vars."
+    columns:
+      - name: event_id
+        tests: [not_null, unique]
+      - name: event_type
+        tests: [not_null]
+      - name: event_hour
+        tests: [not_null]
+      - name: activity_date
+        tests: [not_null]
+      - name: actor_id
+      - name: actor_login
+      - name: repo_id
+      - name: repo_name

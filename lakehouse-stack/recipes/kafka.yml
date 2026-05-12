@@ -1,0 +1,9 @@
+source:
+  type: kafka
+  config:
+    connection:
+      bootstrap: localhost:9092
+sink:
+  type: datahub-rest
+  config:
+    server: http://localhost:8080
