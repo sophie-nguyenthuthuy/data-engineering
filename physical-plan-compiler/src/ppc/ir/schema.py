@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
-from ppc.ir.types import DataType
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from ppc.ir.types import DataType
 
 
 @dataclass(frozen=True, slots=True)

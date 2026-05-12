@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
-from ppc.ir.schema import Schema
+if TYPE_CHECKING:
+    from ppc.ir.schema import Schema
 
 
 @dataclass

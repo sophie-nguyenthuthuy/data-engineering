@@ -11,10 +11,11 @@ A PhysicalNode carries:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
-from ppc.ir.logical import LogicalNode
-from ppc.ir.schema import Schema
+if TYPE_CHECKING:
+    from ppc.ir.logical import LogicalNode
+    from ppc.ir.schema import Schema
 
 
 @dataclass(frozen=True, slots=True)

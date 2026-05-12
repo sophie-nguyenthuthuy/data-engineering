@@ -31,33 +31,33 @@ from ppc.ir.types import (
 )
 
 __all__ = [
-    # types
-    "DataType",
+    "BOOLEAN",
+    "DOUBLE",
     "INT32",
     "INT64",
-    "DOUBLE",
     "STRING",
-    "BOOLEAN",
     "TIMESTAMP",
+    "BinaryOp",
     # schema
     "Column",
-    "Schema",
-    "Stats",
+    "ColumnRef",
+    # types
+    "DataType",
     # expressions
     "Expr",
-    "ColumnRef",
     "Literal",
-    "BinaryOp",
-    "UnaryOp",
-    "column",
-    "lit",
+    "LogicalAggregate",
+    "LogicalFilter",
+    "LogicalJoin",
     # logical
     "LogicalNode",
     "LogicalScan",
-    "LogicalFilter",
-    "LogicalAggregate",
-    "LogicalJoin",
     # physical
     "PhysicalNode",
     "PhysicalPlan",
+    "Schema",
+    "Stats",
+    "UnaryOp",
+    "column",
+    "lit",
 ]

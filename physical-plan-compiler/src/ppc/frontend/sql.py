@@ -14,12 +14,11 @@ correlated WHERE etc. — they belong in a richer frontend.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import sqlglot
 from sqlglot import expressions as sg
 
-from ppc.frontend.catalog import Catalog
 from ppc.ir.expr import (
     AND,
     NOT,
@@ -27,8 +26,6 @@ from ppc.ir.expr import (
     BinaryOp,
     ColumnRef,
     Expr,
-    Literal,
-    UnaryOp,
     column_from_schema,
     lit,
 )
@@ -40,7 +37,10 @@ from ppc.ir.logical import (
     LogicalNode,
     LogicalScan,
 )
-from ppc.ir.schema import Schema
+
+if TYPE_CHECKING:
+    from ppc.frontend.catalog import Catalog
+    from ppc.ir.schema import Schema
 
 
 class SqlParseError(Exception):
@@ -122,9 +122,13 @@ def _from_clause(
     for j in node.args.get("joins") or []:
         if not isinstance(j, sg.Join):
             continue
-        jtype = (j.args.get("kind") or "INNER").upper()
-        if jtype not in ("INNER", ""):
-            raise SqlParseError(f"only INNER JOIN supported (got {jtype})")
+        side = (j.args.get("side") or "").upper()
+        kind = (j.args.get("kind") or "").upper()
+        # sqlglot encodes outer joins via `side` ("LEFT"/"RIGHT"/"FULL").
+        if side in {"LEFT", "RIGHT", "FULL"} or kind in {"OUTER", "LEFT", "RIGHT", "FULL"}:
+            raise SqlParseError(
+                f"only INNER JOIN supported (got side={side or '∅'}, kind={kind or '∅'})"
+            )
         right_tbl = j.this
         if not isinstance(right_tbl, sg.Table):
             raise SqlParseError("JOIN target must be a table")
@@ -234,9 +238,9 @@ def _expr_to_ir(node: sg.Expression, scope: dict[str, Schema]) -> Expr:
     }
     for cls, op_name in op_map.items():
         if isinstance(node, cls):
-            l = _expr_to_ir(node.this, scope)
-            r = _expr_to_ir(node.expression, scope)
-            return BinaryOp(op=op_name, left=l, right=r)
+            left = _expr_to_ir(node.this, scope)
+            right = _expr_to_ir(node.expression, scope)
+            return BinaryOp(op=op_name, left=left, right=right)
 
     raise SqlParseError(f"unsupported expression: {type(node).__name__} ({node})")
 
@@ -271,8 +275,6 @@ def _contains_agg(node: sg.Expression) -> bool:
         target = n if isinstance(n, sg.Expression) else (n[0] if isinstance(n, tuple) else None)
         if target is None:
             continue
-        if isinstance(target, sg.AggFunc) or isinstance(
-            target, (sg.Count, sg.Sum, sg.Avg, sg.Min, sg.Max)
-        ):
+        if isinstance(target, sg.AggFunc | sg.Count | sg.Sum | sg.Avg | sg.Min | sg.Max):
             return True
     return False

@@ -19,8 +19,9 @@ optimization barrier (we add those incrementally if needed).
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-from ppc.cascades.memo import Group, GroupExpression, Memo, _OptResult
+from ppc.cascades.memo import GroupExpression, Memo, _OptResult
 from ppc.cascades.properties import PhysicalProperties
 from ppc.cascades.rules import (
     ImplementationRule,
@@ -36,10 +37,11 @@ from ppc.engines.physical_ops import (
     PhysicalHashJoin,
     PhysicalScan,
 )
-from ppc.frontend.catalog import Catalog
-from ppc.ir.logical import LogicalNode
 from ppc.ir.physical import PhysicalNode, PhysicalPlan
 
+if TYPE_CHECKING:
+    from ppc.frontend.catalog import Catalog
+    from ppc.ir.logical import LogicalNode
 
 DEFAULT_ENGINES = ("spark", "dbt", "duckdb", "flink")
 
@@ -149,7 +151,7 @@ class Optimizer:
         from ppc.cost.calibrated import CalibratedCostModel
 
         op = pexpr.op
-        assert isinstance(op, (PhysicalScan, PhysicalFilter, PhysicalAggregate, PhysicalHashJoin))
+        assert isinstance(op, PhysicalScan | PhysicalFilter | PhysicalAggregate | PhysicalHashJoin)
         engine = op.engine
 
         # Required props for children: same engine, no specific partitioning

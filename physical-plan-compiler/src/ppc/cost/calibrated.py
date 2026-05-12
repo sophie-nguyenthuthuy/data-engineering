@@ -7,6 +7,7 @@ one) without touching the optimizer.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from ppc.engines.physical_ops import (
     PhysicalAggregate,
@@ -14,7 +15,9 @@ from ppc.engines.physical_ops import (
     PhysicalHashJoin,
     PhysicalScan,
 )
-from ppc.ir.physical import PhysicalNode
+
+if TYPE_CHECKING:
+    from ppc.ir.physical import PhysicalNode
 
 
 @dataclass
@@ -23,6 +26,6 @@ class CalibratedCostModel:
     need to know about the engine profiles directly."""
 
     def cost_of(self, op: PhysicalNode) -> float:
-        if isinstance(op, (PhysicalScan, PhysicalFilter, PhysicalAggregate, PhysicalHashJoin)):
+        if isinstance(op, PhysicalScan | PhysicalFilter | PhysicalAggregate | PhysicalHashJoin):
             return op.cost
         return 0.0

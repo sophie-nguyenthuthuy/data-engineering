@@ -50,11 +50,11 @@ def __getattr__(name: str) -> Any:
 
 
 __all__ = [
-    "Optimizer",
-    "PhysicalPlan",
     "LogicalAggregate",
     "LogicalFilter",
     "LogicalJoin",
     "LogicalScan",
+    "Optimizer",
+    "PhysicalPlan",
     "compile_sql",
 ]

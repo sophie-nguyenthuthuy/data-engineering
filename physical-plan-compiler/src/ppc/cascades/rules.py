@@ -15,19 +15,21 @@ The classic Cascades guarantees: rules are checked once per (group, rule).
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Iterable
-from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-from ppc.cascades.memo import GroupExpression, Memo
-from ppc.engines.base import EngineOp
 from ppc.ir.logical import (
-    AggFunc,
     LogicalAggregate,
     LogicalFilter,
     LogicalJoin,
     LogicalNode,
     LogicalScan,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from ppc.cascades.memo import GroupExpression, Memo
+    from ppc.engines.base import EngineOp
 
 
 class Rule(ABC):

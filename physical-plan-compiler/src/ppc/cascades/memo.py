@@ -15,11 +15,12 @@ what makes Cascades memoized: identical sub-plans share a group.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from ppc.cascades.properties import PhysicalProperties
-from ppc.ir.logical import LogicalNode
-from ppc.ir.physical import PhysicalNode
+if TYPE_CHECKING:
+    from ppc.cascades.properties import PhysicalProperties
+    from ppc.ir.logical import LogicalNode
+    from ppc.ir.physical import PhysicalNode
 
 
 @dataclass

@@ -8,15 +8,15 @@ at materialization time via `with_children`).
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from ppc.engines.base import ENGINE_PROFILES, EngineOp
-from ppc.ir.expr import Expr
-from ppc.ir.logical import AggFunc
 from ppc.ir.physical import PhysicalNode, PhysicalProperties
 from ppc.ir.schema import Schema
-from ppc.ir.expr import ColumnRef
 
+if TYPE_CHECKING:
+    from ppc.ir.expr import ColumnRef, Expr
+    from ppc.ir.logical import AggFunc
 
 # ---------------------------------------------------------------------------
 # Selectivity helpers (used by cost model + cardinality estimate)

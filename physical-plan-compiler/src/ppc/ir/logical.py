@@ -11,10 +11,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import cached_property
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
-from ppc.ir.expr import ColumnRef, Expr
 from ppc.ir.schema import Column, Schema
+
+if TYPE_CHECKING:
+    from ppc.ir.expr import ColumnRef, Expr
 
 
 class LogicalNode:
@@ -205,7 +207,8 @@ class LogicalJoin(LogicalNode):
             return merged
         # Pick the larger of the join-key NDVs as denominator (the standard
         # "1/max(NDV_L, NDV_R)" estimator).
-        from ppc.ir.expr import BinaryOp, ColumnRef as CR
+        from ppc.ir.expr import BinaryOp
+        from ppc.ir.expr import ColumnRef as CR
 
         denom = 1
         if isinstance(self.on, BinaryOp) and self.on.op == "=":

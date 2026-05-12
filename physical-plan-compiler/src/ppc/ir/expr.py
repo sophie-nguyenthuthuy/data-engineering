@@ -9,10 +9,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from functools import cached_property
-from typing import Any, Final
+from typing import TYPE_CHECKING, Any, Final
 
-from ppc.ir.schema import Schema
 from ppc.ir.types import BOOLEAN, DOUBLE, INT64, STRING, DataType, promote
+
+if TYPE_CHECKING:
+    from ppc.ir.schema import Schema
 
 
 class Expr:
@@ -236,8 +238,8 @@ def expr_ne(self: Expr, other: object) -> BinaryOp:
     return BinaryOp(op="!=", left=self, right=other)
 
 
-setattr(Expr, "eq", expr_eq)
-setattr(Expr, "ne", expr_ne)
+Expr.eq = expr_eq
+Expr.ne = expr_ne
 
 
 def AND(left: Expr, right: Expr) -> BinaryOp:

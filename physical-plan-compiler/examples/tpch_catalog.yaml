@@ -1,0 +1,25 @@
+tables:
+  orders:
+    rows: 1500000
+    columns:
+      - {name: o_orderkey,    type: INT64,     ndv: 1500000}
+      - {name: o_custkey,     type: INT64,     ndv: 150000}
+      - {name: o_orderdate,   type: TIMESTAMP}
+      - {name: o_totalprice,  type: DOUBLE}
+      - {name: o_orderstatus, type: STRING,    ndv: 3}
+  customer:
+    rows: 150000
+    columns:
+      - {name: c_custkey,    type: INT64,  ndv: 150000}
+      - {name: c_name,       type: STRING}
+      - {name: c_nationkey,  type: INT64,  ndv: 25}
+      - {name: c_mktsegment, type: STRING, ndv: 5}
+  lineitem:
+    rows: 6000000
+    columns:
+      - {name: l_orderkey,      type: INT64, ndv: 1500000}
+      - {name: l_extendedprice, type: DOUBLE}
+      - {name: l_discount,      type: DOUBLE}
+      - {name: l_quantity,      type: DOUBLE}
+      - {name: l_returnflag,    type: STRING, ndv: 3}
+      - {name: l_shipdate,      type: TIMESTAMP}

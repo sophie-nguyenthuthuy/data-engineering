@@ -1,0 +1,38 @@
+name: physical-plan-compiler
+
+on:
+  push:
+    paths:
+      - "physical-plan-compiler/**"
+      - ".github/workflows/ppc.yml"
+  pull_request:
+    paths:
+      - "physical-plan-compiler/**"
+      - ".github/workflows/ppc.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: physical-plan-compiler
+    strategy:
+      matrix:
+        python: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: physical-plan-compiler/pyproject.toml
+      - name: Install
+        run: pip install -e ".[dev]"
+      - name: Lint
+        run: ruff check src tests benchmarks
+      - name: Typecheck
+        run: mypy src/ppc
+      - name: Test
+        run: pytest -q
+      - name: Benchmark (smoke)
+        run: python -m benchmarks.tpch_planner_bench

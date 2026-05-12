@@ -80,10 +80,18 @@ select = [
 ignore = [
     "E501",        # line length handled by formatter
     "B008",        # function-call-in-default-argument (used for sentinels)
+    "RUF001",      # ambiguous unicode in strings (we use ε, →, ≈ deliberately)
+    "RUF002",      # ambiguous unicode in docstrings
+    "RUF003",      # ambiguous unicode in comments
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["B", "SIM"]
+"src/ppc/cli.py" = ["F401"]            # rich is optional, imported in try-block
+"src/ppc/cascades/**" = ["SIM102", "SIM103"]   # nested-ifs are easier to read here
+"src/ppc/ir/expr.py" = ["SIM102"]
+"src/ppc/ir/logical.py" = ["SIM102", "E741"]
+"src/ppc/engines/base.py" = ["B024"]   # marker base class (intentional)
 
 [tool.ruff.format]
 quote-style = "double"
