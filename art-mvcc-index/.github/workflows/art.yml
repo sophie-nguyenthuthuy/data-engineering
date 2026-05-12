@@ -1,0 +1,38 @@
+name: art-mvcc-index
+
+on:
+  push:
+    paths:
+      - "art-mvcc-index/**"
+      - ".github/workflows/art.yml"
+  pull_request:
+    paths:
+      - "art-mvcc-index/**"
+      - ".github/workflows/art.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: art-mvcc-index
+    strategy:
+      matrix:
+        python: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: art-mvcc-index/pyproject.toml
+      - name: Install
+        run: pip install -e ".[dev]"
+      - name: Lint
+        run: ruff check src tests benchmarks
+      - name: Test (quick)
+        run: pytest -q -m "not jepsen"
+      - name: Test (jepsen)
+        run: pytest -q -m "jepsen"
+      - name: Benchmarks (smoke)
+        run: python -m benchmarks.bench_lookup

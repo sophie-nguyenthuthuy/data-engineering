@@ -1,0 +1,79 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "art-mvcc-index"
+version = "0.1.0"
+description = "Adaptive Radix Tree with MVCC (snapshot isolation, epoch reclamation)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "sophie-nguyenthuthuy" }]
+keywords = ["adaptive-radix-tree", "mvcc", "snapshot-isolation", "index"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Database",
+]
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "hypothesis>=6.100",
+    "mypy>=1.10",
+    "ruff>=0.5",
+    "rich>=13.0",
+    "sortedcontainers>=2.4",   # benchmark baseline
+]
+
+[project.scripts]
+artctl = "art_mvcc.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/sophie-nguyenthuthuy/data-engineering/tree/main/art-mvcc-index"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/art_mvcc"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+disallow_any_generics = true
+check_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = ["sortedcontainers.*", "rich.*"]
+ignore_missing_imports = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src", "tests", "benchmarks"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP", "SIM", "RUF", "TCH"]
+ignore = ["E501", "B008", "RUF001", "RUF002", "RUF003"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["B", "SIM"]
+"benchmarks/**" = ["B", "SIM"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+markers = [
+    "slow: marks tests as slow",
+    "jepsen: chaos / concurrency stress tests",
+]
