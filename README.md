@@ -159,41 +159,41 @@ Project ideas at the spec-and-skeleton stage. Each has a detailed design-doc REA
 
 | Project | Status | Description |
 |---|---|---|
-| [disaggregated-storage-engine](./disaggregated-storage-engine/) | _Spec_ | Remote buffer pool over RDMA with Markov prefetcher and page-level coherence |
-| [art-mvcc-index](./art-mvcc-index/) | _Spec_ | Adaptive Radix Tree with MVCC via epoch-based reclamation, lock-free split |
-| [b-epsilon-tree](./b-epsilon-tree/) | _Spec_ | Write-optimized B^ε-tree with online ε tuning based on read/write ratio |
+| [disaggregated-storage-engine](./disaggregated-storage-engine/) | **MVP** | Remote buffer pool over RDMA with Markov prefetcher and page-level coherence |
+| [art-mvcc-index](./art-mvcc-index/) | **MVP** | Adaptive Radix Tree with MVCC via epoch-based reclamation, lock-free split |
+| [b-epsilon-tree](./b-epsilon-tree/) | **MVP** | Write-optimized B^ε-tree with online ε tuning based on read/write ratio |
 
 ### Streaming & Time
 
 | Project | Status | Description |
 |---|---|---|
-| [probabilistic-watermarks](./probabilistic-watermarks/) | _Spec_ | Watermark protocol with P(late \| advanced) < 0.1% via learned per-key delay models |
-| [ivm-nested-aggregates](./ivm-nested-aggregates/) | _Spec_ | IVM for window functions, correlated subqueries, nested aggregates; switches delta↔recompute |
-| [timely-dataflow-engine](./timely-dataflow-engine/) | _Spec_ | Naiad-style timestamps `(epoch, iter)` for unified batch/stream/iterative |
+| [probabilistic-watermarks](./probabilistic-watermarks/) | **MVP** | Watermark protocol with P(late \| advanced) < 0.1% via learned per-key delay models |
+| [ivm-nested-aggregates](./ivm-nested-aggregates/) | **MVP** | IVM for window functions, correlated subqueries, nested aggregates; switches delta↔recompute |
+| [timely-dataflow-engine](./timely-dataflow-engine/) | **MVP** | Naiad-style timestamps `(epoch, iter)` for unified batch/stream/iterative |
 
 ### Data Correctness & Formal Methods
 
 | Project | Status | Description |
 |---|---|---|
-| [tla-verified-pipeline](./tla-verified-pipeline/) | _Spec_ | TLA+ spec for CDC→Kafka→DW→reverse-ETL with runtime monitor using same state machine |
-| [provenance-semiring-engine](./provenance-semiring-engine/) | _Spec_ | Green-Karvounarakis-Tannen provenance with Why / How / TriCS semiring instances |
-| [shuffle-dp-engine](./shuffle-dp-engine/) | _Spec_ | Shuffle-model DP with cryptographic mixer and Balle et al.'s optimal analyzer |
+| [tla-verified-pipeline](./tla-verified-pipeline/) | **MVP** | TLA+ spec for CDC→Kafka→DW→reverse-ETL with runtime monitor using same state machine |
+| [provenance-semiring-engine](./provenance-semiring-engine/) | **MVP** | Green-Karvounarakis-Tannen provenance with Why / How / TriCS semiring instances |
+| [shuffle-dp-engine](./shuffle-dp-engine/) | **MVP** | Shuffle-model DP with cryptographic mixer and Balle et al.'s optimal analyzer |
 
 ### ML-Data System Co-design
 
 | Project | Status | Description |
 |---|---|---|
-| [learned-layout-optimizer](./learned-layout-optimizer/) | _Spec_ | RL agent that continuously reorganises data layout (Z-order / Hilbert / sort) by workload |
-| [aqp-coreset-engine](./aqp-coreset-engine/) | _Spec_ | Approximate query processing via coresets with confidence-interval results |
-| [causal-feature-store](./causal-feature-store/) | _Spec_ | Per-entity vector clocks; serving guarantees causally consistent feature vectors across hot/cold |
+| [learned-layout-optimizer](./learned-layout-optimizer/) | **MVP** | RL agent that continuously reorganises data layout (Z-order / Hilbert / sort) by workload |
+| [aqp-coreset-engine](./aqp-coreset-engine/) | **MVP** | Approximate query processing via coresets with confidence-interval results |
+| [causal-feature-store](./causal-feature-store/) | **MVP** | Per-entity vector clocks; serving guarantees causally consistent feature vectors across hot/cold |
 
 ### Platform & Meta-Systems
 
 | Project | Status | Description |
 |---|---|---|
-| [forecasting-pipeline-scheduler](./forecasting-pipeline-scheduler/) | _Spec_ | K8s scheduler that models DAGs as Jackson networks; B&B on subgraphs ≤16; shadow-mode vs Airflow |
-| [physical-plan-compiler](./physical-plan-compiler/) | _Spec_ | Cascades planner over Spark/dbt/Flink/DuckDB physical ops with auto-inserted cross-engine conversions |
-| [adversarial-chaos-engine](./adversarial-chaos-engine/) | _Spec_ | Symbolic-execution + property-based chaos: generates targeted invariant-violating inputs |
+| [forecasting-pipeline-scheduler](./forecasting-pipeline-scheduler/) | **MVP** | K8s scheduler that models DAGs as Jackson networks; B&B on subgraphs ≤16; shadow-mode vs Airflow |
+| [physical-plan-compiler](./physical-plan-compiler/) | **MVP** | Cascades planner over Spark/dbt/Flink/DuckDB physical ops with auto-inserted cross-engine conversions |
+| [adversarial-chaos-engine](./adversarial-chaos-engine/) | **MVP** | Symbolic-execution + property-based chaos: generates targeted invariant-violating inputs |
 
 ---
 
