@@ -1,17 +1,27 @@
 # Data Engineering
 
-A curated monorepo aggregating my data engineering work — pipelines, storage engines, query engines, governance tooling, and distributed-systems primitives. Each subdirectory is an independent project with its own `.git`, README, and runtime.
+A curated monorepo aggregating my data engineering work — pipelines, storage engines, query engines, governance tooling, and distributed-systems primitives. Each subdirectory is an independent project with its own README and runtime.
 
-**78 projects** across 6 categories.
+**93 projects** total: **78 built** across 6 categories, **15 research & design specs** across 7 categories.
 
 ## Directory
 
+**Built (78):**
 - [Streaming & Real-time](#streaming--real-time) (15)
 - [Batch, ETL & Orchestration](#batch-etl--orchestration) (15)
 - [Data Quality & Governance](#data-quality--governance) (10)
 - [Query & Storage Engines](#query--storage-engines) (17)
 - [Data Warehouse & Lakehouse](#data-warehouse--lakehouse) (8)
 - [Distributed Systems & Infrastructure](#distributed-systems--infrastructure) (10)
+
+**Research & Design Specs (15):**
+- [Query Processing & Compilation](#query-processing--compilation)
+- [Distributed Systems Theory](#distributed-systems-theory)
+- [Storage Engine Internals](#storage-engine-internals)
+- [Streaming & Time](#streaming--time)
+- [Data Correctness & Formal Methods](#data-correctness--formal-methods)
+- [ML-Data System Co-design](#ml-data-system-co-design)
+- [Platform & Meta-Systems](#platform--meta-systems)
 
 ---
 
@@ -125,6 +135,68 @@ A curated monorepo aggregating my data engineering work — pipelines, storage e
 
 ---
 
+## Research & Design Specs
+
+Project ideas at the spec-and-skeleton stage. Each has a detailed design-doc README (architecture, components, hard parts, references, roadmap) and an empty `src/` + `tests/` ready for implementation.
+
+### Query Processing & Compilation
+
+| Project | Status | Description |
+|---|---|---|
+| [query-compiler-llvm](./query-compiler-llvm/) | **Built** | SQL-to-LLVM compiler with runtime specialization, speculative JIT, hot-swap (HyPer/Umbra-inspired) |
+| [wcoj-engine](./wcoj-engine/) | **Built** | Leapfrog Triejoin + Generic Join with GYO cyclic-query detection |
+| [cardinality-learned-optimizer](./cardinality-learned-optimizer/) | **Built** | Neo/Bao optimizer loop with TreeLSTM cardinality + Thompson sampling |
+
+### Distributed Systems Theory
+
+| Project | Status | Description |
+|---|---|---|
+| [flexible-paxos](./flexible-paxos/) | **Built** | Flexible Paxos with dynamic quorum reconfiguration + TLA+ proof |
+| [crdt-composition-algebra](./crdt-composition-algebra/) | **Built** | Algebraic CRDT composition with convergence proofs + ITC anti-entropy |
+| [bft-stream](./bft-stream/) | **Built** | PBFT watermark consensus for streaming, <3× overhead vs Raft |
+
+### Storage Engine Internals
+
+| Project | Status | Description |
+|---|---|---|
+| [disaggregated-storage-engine](./disaggregated-storage-engine/) | _Spec_ | Remote buffer pool over RDMA with Markov prefetcher and page-level coherence |
+| [art-mvcc-index](./art-mvcc-index/) | _Spec_ | Adaptive Radix Tree with MVCC via epoch-based reclamation, lock-free split |
+| [b-epsilon-tree](./b-epsilon-tree/) | _Spec_ | Write-optimized B^ε-tree with online ε tuning based on read/write ratio |
+
+### Streaming & Time
+
+| Project | Status | Description |
+|---|---|---|
+| [probabilistic-watermarks](./probabilistic-watermarks/) | _Spec_ | Watermark protocol with P(late \| advanced) < 0.1% via learned per-key delay models |
+| [ivm-nested-aggregates](./ivm-nested-aggregates/) | _Spec_ | IVM for window functions, correlated subqueries, nested aggregates; switches delta↔recompute |
+| [timely-dataflow-engine](./timely-dataflow-engine/) | _Spec_ | Naiad-style timestamps `(epoch, iter)` for unified batch/stream/iterative |
+
+### Data Correctness & Formal Methods
+
+| Project | Status | Description |
+|---|---|---|
+| [tla-verified-pipeline](./tla-verified-pipeline/) | _Spec_ | TLA+ spec for CDC→Kafka→DW→reverse-ETL with runtime monitor using same state machine |
+| [provenance-semiring-engine](./provenance-semiring-engine/) | _Spec_ | Green-Karvounarakis-Tannen provenance with Why / How / TriCS semiring instances |
+| [shuffle-dp-engine](./shuffle-dp-engine/) | _Spec_ | Shuffle-model DP with cryptographic mixer and Balle et al.'s optimal analyzer |
+
+### ML-Data System Co-design
+
+| Project | Status | Description |
+|---|---|---|
+| [learned-layout-optimizer](./learned-layout-optimizer/) | _Spec_ | RL agent that continuously reorganises data layout (Z-order / Hilbert / sort) by workload |
+| [aqp-coreset-engine](./aqp-coreset-engine/) | _Spec_ | Approximate query processing via coresets with confidence-interval results |
+| [causal-feature-store](./causal-feature-store/) | _Spec_ | Per-entity vector clocks; serving guarantees causally consistent feature vectors across hot/cold |
+
+### Platform & Meta-Systems
+
+| Project | Status | Description |
+|---|---|---|
+| [forecasting-pipeline-scheduler](./forecasting-pipeline-scheduler/) | _Spec_ | K8s scheduler that models DAGs as Jackson networks; B&B on subgraphs ≤16; shadow-mode vs Airflow |
+| [physical-plan-compiler](./physical-plan-compiler/) | _Spec_ | Cascades planner over Spark/dbt/Flink/DuckDB physical ops with auto-inserted cross-engine conversions |
+| [adversarial-chaos-engine](./adversarial-chaos-engine/) | _Spec_ | Symbolic-execution + property-based chaos: generates targeted invariant-violating inputs |
+
+---
+
 ## Layout
 
 ```
@@ -138,6 +210,7 @@ data-engineering/
 
 ## Notes
 
-- All cloned via `git clone --depth 1` (no full history). Run `git fetch --unshallow` inside any subdir for the rest.
-- `bitcoinMonitor/` is a local MVP (no GitHub remote yet). Stack: CoinGecko poller → SQLite → FastAPI + Chart.js dashboard.
+- All cloned via `git clone --depth 1` (no full history). The originals on GitHub still hold full history.
+- `bitcoinMonitor/` is a local MVP. Stack: CoinGecko poller → SQLite → FastAPI + Chart.js dashboard.
+- **Research & Design Specs** are at the spec stage — README + skeleton `src/`/`tests/` only. The 6 "Built" entries cross-referenced in those sections link to the corresponding implemented repos.
 - Each project's runtime is self-contained — see its README for setup.
