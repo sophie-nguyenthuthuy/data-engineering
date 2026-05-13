@@ -1,0 +1,15 @@
+services:
+  aqp:
+    build: .
+    image: aqp-coreset-engine:latest
+    command: ["info"]
+
+  aqp-validate:
+    build: .
+    image: aqp-coreset-engine:latest
+    command: ["validate", "--rows", "20000", "--queries", "200", "--eps", "0.05", "--delta", "0.01"]
+
+  aqp-quantile:
+    build: .
+    image: aqp-coreset-engine:latest
+    command: ["quantile", "--rows", "50000", "--eps", "0.01"]
