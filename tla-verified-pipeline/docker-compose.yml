@@ -1,0 +1,8 @@
+services:
+  tlavp:
+    build: .
+    entrypoint: /bin/sh
+    command: ["-c", "tail -f /dev/null"]
+    volumes:
+      - .:/app
+    working_dir: /app
