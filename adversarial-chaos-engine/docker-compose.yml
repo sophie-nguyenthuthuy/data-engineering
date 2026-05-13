@@ -1,0 +1,15 @@
+services:
+  ace:
+    build: .
+    image: adversarial-chaos-engine:latest
+    command: ["info"]
+
+  ace-run:
+    build: .
+    image: adversarial-chaos-engine:latest
+    command: ["run", "--trials", "100"]
+
+  ace-bench:
+    build: .
+    image: adversarial-chaos-engine:latest
+    command: ["bench", "--trials", "200"]

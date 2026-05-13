@@ -1,0 +1,1 @@
+"""Invariant catalog + builtin checks."""
