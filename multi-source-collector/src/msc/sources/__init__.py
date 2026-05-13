@@ -1,0 +1,1 @@
+"""Pluggable source adapters."""

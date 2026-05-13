@@ -1,0 +1,5 @@
+services:
+  msc:
+    build: .
+    image: multi-source-collector:latest
+    command: ["info"]
