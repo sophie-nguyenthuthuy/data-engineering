@@ -1,0 +1,15 @@
+services:
+  llo:
+    build: .
+    image: learned-layout-optimizer:latest
+    command: ["info"]
+
+  llo-bench:
+    build: .
+    image: learned-layout-optimizer:latest
+    command: ["bench", "--rows", "4096", "--queries", "800", "--shift-every", "200"]
+
+  llo-simulate:
+    build: .
+    image: learned-layout-optimizer:latest
+    command: ["simulate", "--rows", "4096", "--queries", "800", "--act-every", "50"]
