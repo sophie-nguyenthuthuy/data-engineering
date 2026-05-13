@@ -1,133 +1,206 @@
 # causal-feature-store
 
-A feature store with **causal-consistency guarantees**: at serving time, every feature value in a returned vector comes from a single causally consistent snapshot per entity. No mixing of pre-event and post-event values for the same entity, ever — even under concurrent writes and network partitions.
+A feature store that returns **causally consistent feature vectors**:
+every value in the vector comes from a single per-entity snapshot
+labelled with a vector clock, so a model never sees an impossible mix of
+pre-event and post-event state — even under concurrent writes or
+network partitions.
 
-> **Status:** Design / spec phase. Extends [`streaming-feature-store`](../streaming-feature-store/) (batch+stream parity) with formal causal consistency across the hot (Redis) and cold (Parquet) tiers.
+[![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue.svg)](#)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-## Why this matters
+## Why
 
-A typical model reads ~50 features. If they're sourced independently from a key-value store:
+A typical model reads ~50 features. If they are fetched independently
+from a key-value store, the model can see:
 
-- Feature `last_click_ts` from row at t=10
-- Feature `session_clicks_count` from row at t=20 (after a click landed)
-- Feature `is_logged_in` from row at t=5 (before login)
+- `last_click_ts` from t = 10
+- `session_clicks_count` from t = 20 (after the click landed)
+- `is_logged_in` from t = 5 (before the login)
 
-The model sees a state that **never existed**. Even when each individual write is correct, the *combination* is incoherent — and ML models trained on consistent training data behave unpredictably on inconsistent inference data.
+That combined state never existed in the world. Training data is
+internally consistent but inference data is not — the model behaves
+unpredictably and the bug is invisible in offline metrics.
 
-This problem is invisible in offline accuracy metrics and silently degrades production.
-
-## Causal consistency, scoped per entity
-
-For each entity (user_id, item_id, …) we maintain a **vector clock** over the components that write features:
-
-```
-entity_id = u42
-clock = { click_stream: 10, page_view: 7, identity: 3 }
-```
-
-Every feature value in the store is tagged with the entity's clock value *at the time of write*.
-
-**Serving guarantee:** when a client requests features for `u42` at "now", the returned vector is consistent with a single clock value `c*` — i.e., for every returned feature `f`, the value reflects the entity's state at clock `c* ≥ clock_at_first_lookup`.
-
-`c*` may be slightly stale (server picks the highest clock for which *all* requested features are available), but never **inconsistent**.
+The fix is to tag every write with a per-entity vector clock and, at
+serve time, pick a single clock value that dominates every returned
+version.
 
 ## Architecture
 
 ```
-                       Producers
-            click   page_view   identity
-              │         │           │
-              ▼         ▼           ▼
-        ┌─────────────────────────────────┐
-        │ Stream router (per-entity)       │
-        │  - bumps vector clock            │
-        │  - writes (entity, clock, value) │
-        │  - emits to log AND tiers        │
-        └────────────────┬─────────────────┘
-                         │
-        ┌────────────────┼────────────────┐
-        ▼                                  ▼
-    ┌────────────┐                  ┌─────────────┐
-    │ Redis hot  │                  │ Parquet cold│
-    │ (last K    │                  │ (history)   │
-    │ versions)  │                  └──────┬──────┘
-    └─────┬──────┘                         │
-          │                                │
-          └────────────┬───────────────────┘
+                  Producers
+        clicks       page_view       identity
+          │            │                │
+          ▼            ▼                ▼
+     ┌─────────────────────────────────────┐
+     │              Writer                  │
+     │  bump(entity_clock, component)       │
+     │  HotStore.write   ColdStore.write    │
+     └────────────────┬─────────────────────┘
+                      │
+     ┌────────────────┼─────────────────────┐
+     ▼                                       ▼
+  ┌──────────┐                         ┌────────────┐
+  │ HotStore │                         │ ColdStore  │
+  │ last K   │                         │ append-only│
+  │ versions │                         └─────┬──────┘
+  └────┬─────┘                               │
+       │                                     │
+       └───────────────┬─────────────────────┘
                        ▼
-            ┌──────────────────────┐
-            │  Serving resolver    │
-            │  - reads clocks      │
-            │  - picks max c*      │
-            │  - assembles vector  │
-            └──────────────────────┘
+              ┌────────────────────┐
+              │      Resolver      │
+              │ pick chosen_clock  │
+              │ assemble snapshot  │
+              └────────────────────┘
+                       │
+                       ▼
+            ResolvedVector(features, chosen_clock, missing)
+```
+
+## Install
+
+```bash
+pip install -e ".[dev]"
+```
+
+Python 3.10+. **Zero runtime dependencies** — stdlib only.
+
+## CLI
+
+```bash
+cfsctl info              # version
+cfsctl demo              # tiny write + resolve example
+cfsctl partition         # simulate a partition + heal
+```
+
+Example `cfsctl demo`:
+
+```
+features      = {'n_clicks': 2, 'is_premium': True}
+chosen_clock  = {'clicks': 2, 'identity': 1}
+missing       = ['missing_feature']
+verified      = True
+```
+
+## Library
+
+```python
+from cfs.store.hot         import HotStore
+from cfs.store.cold        import ColdStore
+from cfs.writer            import Writer
+from cfs.serving.resolver  import Resolver
+from cfs.partition         import PartitionScenario
+
+# 1. Build the tiered store.
+hot, cold = HotStore(k=5), ColdStore()
+writer = Writer(hot=hot, cold=cold)
+resolver = Resolver(hot=hot, cold=cold)
+
+# 2. Write features through their producing component.
+writer.write("u42", component="clicks",   feature="n_clicks", value=1)
+writer.write("u42", component="identity", feature="is_premium", value=True)
+
+# 3. Resolve a single causally consistent snapshot.
+rv = resolver.get("u42", ["n_clicks", "is_premium", "missing"])
+rv.features            # {'n_clicks': 1, 'is_premium': True}
+rv.chosen_clock        # {'clicks': 1, 'identity': 1}
+rv.missing             # ['missing']
+
+# 4. Simulate a partition (Jepsen style).
+sc = PartitionScenario()
+sc.write_on("a", "u1", "compA", "f1", "A1")
+sc.write_on("b", "u1", "compB", "f1", "B1")
+pre  = sc.get("u1", ["f1"])
+sc.heal()
+sc.write_on("a", "u1", "compB", "f2", "joint")
+post = sc.get("u1", ["f1", "f2"])
 ```
 
 ## Components
 
-| Module | Role |
-|---|---|
-| `src/clock/vector_clock.py` | Per-entity vector clock |
-| `src/stream/router.py` | Bumps clock, writes tagged feature value |
-| `src/online/redis_versioned.py` | Stores last K (clock, value) pairs per (entity, feature) |
-| `src/offline/parquet_versioned.py` | Append-only versioned Parquet |
-| `src/serving/resolver.py` | Picks max consistent clock, assembles vector |
-| `src/correctness/partition_test.py` | Network partition + concurrent write tests |
-| `src/correctness/jepsen/` | Falsification harness for causal consistency |
+| Module                       | Role                                                                    |
+| ---------------------------- | ----------------------------------------------------------------------- |
+| `cfs.clock.vector_clock`     | `dominates`, `equal`, `lt`, `concurrent`, `pointwise_max`, `bump`       |
+| `cfs.store.version`          | Frozen `Version(value, clock, wall)` record                             |
+| `cfs.store.hot`              | `HotStore` — thread-safe, bounded-history (last K) online tier          |
+| `cfs.store.cold`             | `ColdStore` — thread-safe, append-only history tier                     |
+| `cfs.writer`                 | `Writer` — bumps per-entity clock, fans out to hot + cold               |
+| `cfs.serving.resolver`       | `Resolver` — picks a single dominating `chosen_clock` and assembles     |
+| `cfs.partition`              | `PartitionScenario` — two-sided writer with pre-heal isolation          |
+| `cfs.cli`                    | `cfsctl info | demo | partition`                                       |
 
 ## The resolver protocol
 
 ```python
-def get_features(entity_id, requested_features):
-    # 1. Get current clock from each component
-    clocks = redis.hgetall(f"clock:{entity_id}")              # {comp: clk}
+target = hot.entity_clock(entity)                    # pointwise max so far
+chosen = {}
+for f in requested_features:
+    versions = hot.versions(entity, f) + cold.versions(entity, f)
+    candidates = [v for v in versions if dominates(target, v.clock)]
+    if candidates:
+        chosen[f] = max(candidates, key=lambda v: v.wall)
 
-    # 2. For each requested feature, find max version where ALL components ≤ clocks
-    candidates = []
-    for f in requested_features:
-        versions = redis.zrange(f"{entity_id}:{f}", 0, -1, withscores=True)
-        for value, version_clock in versions:
-            if dominates(clocks, version_clock):              # ∀c: clocks[c] >= version_clock[c]
-                candidates.append((f, value, version_clock))
-                break
-
-    # 3. Pick c* = component-wise max over chosen versions, then re-verify
-    c_star = pointwise_max(v_clock for _, _, v_clock in candidates)
-    re_verified = [(f, v) for f, v, vc in candidates if dominates(c_star, vc)]
-
-    return re_verified, c_star
+chosen_clock = pointwise_max(*(v.clock for v in chosen.values()))
+return ResolvedVector(
+    features={f: v.value for f, v in chosen.items()},
+    chosen_clock=chosen_clock,
+    missing=[f for f in requested_features if f not in chosen],
+)
 ```
 
-The retry-and-verify loop bounds the wait. In the worst case (heavy partition), some features may be reported as "unavailable at consistent snapshot" — caller decides whether to wait or fall back.
+`Resolver.verify(entity, rv)` re-reads every returned version and checks
+that `chosen_clock` dominates it — used as a property invariant in the
+tests.
 
-## Correctness tests
+## Thread safety
 
-Jepsen-style:
+`HotStore`, `ColdStore`, and `Writer` each protect their state with an
+`threading.RLock`. Re-entrancy matters: a reader can call
+`entity_clock` then `versions(entity, feature)` from the same thread
+without deadlock; the resolver does exactly this.
 
-1. **Concurrent write test.** 64 writers slam different feature components for the same entity. Reader picks 10⁵ random snapshots. Each snapshot must satisfy: for every (feature_a, feature_b) returned, neither's writer "happens after" the other's per the vector clock.
+The threaded test suite spins up two producers writing distinct
+components 500 times each and asserts (a) no records are lost and (b)
+the resolver's chosen clock dominates every value it returned.
 
-2. **Partition test.** Partition the redis tier from a subset of writers for 30 s. After healing, no returned vector should mix pre-partition and post-partition writes inconsistently.
+## Quality
 
-3. **Hot/cold mix test.** Force some features to resolve from Parquet (evicted from Redis). Verify the cold values' clocks dominate / are dominated correctly.
+```bash
+make lint        # ruff   (E, W, F, I, B, UP, SIM, RUF, TC)
+make format      # ruff format
+make type        # mypy --strict
+make test        # 52 tests (incl. 6 Hypothesis lattice properties + 2 threaded)
+make demo        # CLI write + resolve example
+make partition   # CLI partition simulation
+make docker      # production image
+```
 
-## Performance budget
+- **52 tests**, 0 failing.
+- `mypy --strict` clean over 12 source files.
+- Python 3.10 / 3.11 / 3.12 CI matrix + Docker build smoke step.
+- Multi-stage slim Docker image, non-root `cfs` user.
 
-- Online serving p99: ≤ 15 ms (vs. 10 ms for the non-causal baseline; 50 % budget for clock resolution).
-- Memory overhead: O(K * components) per entity. With K=3 versions and 5 components, ~120 bytes overhead per entity-feature.
+### Property tests
+
+The vector-clock lattice is checked with Hypothesis:
+
+- `dominates` is reflexive, antisymmetric (on equality), transitive.
+- `pointwise_max(a, b)` is the join: `dominates(pointwise_max(a, b), a)`
+  and `dominates(pointwise_max(a, b), b)` always hold.
+- `pointwise_max` is commutative and associative.
 
 ## References
 
-- Lamport, "Time, Clocks, and the Ordering of Events" (1978)
-- Cassandra Lightweight Transactions; CockroachDB MVCC for causal-consistency mechanics
-- Ahamad et al., "Causal Memory" (DCS 1995)
-- Bailis et al., "Bolt-on Causal Consistency" (SIGMOD 2013)
+- Lamport. *Time, Clocks, and the Ordering of Events in a Distributed
+  System.* CACM 1978.
+- Ahamad, Neiger, Burns, Kohli, Hutto. *Causal Memory: Definitions,
+  Implementation, and Programming.* DCS 1995.
+- Bailis, Ghodsi, Hellerstein, Stoica. *Bolt-on Causal Consistency.*
+  SIGMOD 2013.
+- Bashar, Hossain, Doshi. *Jepsen.* https://jepsen.io.
 
-## Roadmap
+## License
 
-- [ ] Per-entity vector clock + clock store
-- [ ] Versioned online (Redis) writes
-- [ ] Versioned offline (Parquet) writes
-- [ ] Resolver protocol
-- [ ] Single-region correctness tests
-- [ ] Partition tests
-- [ ] Multi-region replication (open question)
+MIT — see [LICENSE](LICENSE).

@@ -1,0 +1,15 @@
+services:
+  cfs:
+    build: .
+    image: causal-feature-store:latest
+    command: ["info"]
+
+  cfs-demo:
+    build: .
+    image: causal-feature-store:latest
+    command: ["demo"]
+
+  cfs-partition:
+    build: .
+    image: causal-feature-store:latest
+    command: ["partition"]
