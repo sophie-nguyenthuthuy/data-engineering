@@ -1,0 +1,15 @@
+services:
+  sdp:
+    build: .
+    image: shuffle-dp-engine:latest
+    command: ["info"]
+
+  sdp-demo:
+    build: .
+    image: shuffle-dp-engine:latest
+    command: ["demo", "--n", "5000", "--eps0", "2.0"]
+
+  sdp-amplification:
+    build: .
+    image: shuffle-dp-engine:latest
+    command: ["amplification", "--eps0", "2.0", "--n", "1000000", "--delta", "1e-6"]

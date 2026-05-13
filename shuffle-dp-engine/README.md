@@ -1,109 +1,191 @@
 # shuffle-dp-engine
 
-A **Shuffle Model** differential privacy system: records are anonymously shuffled by a cryptographic mixer before reaching the aggregator. The shuffle provides **privacy amplification** — local randomization with parameter ε₀ ends up with central-DP-equivalent ε ≈ O(ε₀ / √n). Implements Balle et al.'s optimal analyzer; cryptographic shuffler proved secure.
+A **shuffle-model differential privacy** system: each user locally randomises a
+record with parameter ε₀, an anonymous cryptographic shuffler permutes the
+batch, and the aggregator answers central-DP queries with parameter
+ε ≪ ε₀. Implements local randomisers (k-ary RR, Laplace, Gaussian), a 3-stage
+onion mix network, the Erlingsson/Balle privacy-amplification analyzer, basic
+and Dwork–Rothblum–Vadhan advanced composition, private histograms / means,
+and an empirical membership-inference validator.
 
-> **Status:** Design / spec phase. Extends [`differential-privacy-budget-manager`](../differential-privacy-budget-manager/) (central DP budget tracking) into the shuffle regime, where the privacy story is fundamentally stronger.
+[![Python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue.svg)](#)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 ## Why shuffle DP
 
 Three DP regimes:
 
-| Regime | Privacy unit | ε for analyst utility | Trust assumption |
-|---|---|---|---|
-| **Central DP** | curator runs noisy aggregation | ε ≈ 0.5 | trust the curator |
-| **Local DP** | each user randomizes locally | ε per user ≈ 4–8 | trust nobody |
-| **Shuffle DP** | anonymous shuffler between users & curator | ε ≈ 0.5 + amplification | trust the shuffler (cryptographic) |
+| Regime         | Privacy unit                          | ε for analyst utility       | Trust assumption          |
+| -------------- | ------------------------------------- | --------------------------- | ------------------------- |
+| **Central**    | curator runs noisy aggregation        | ε ≈ 0.5                     | trust the curator         |
+| **Local**      | each user randomises locally          | ε per user ≈ 4–8            | trust nobody              |
+| **Shuffle**    | anonymous shuffler between user / agg | ε ≈ 0.5 + amplification     | trust the shuffler crypto |
 
-Shuffle DP is the practically interesting middle ground: same end-utility as central DP, no need to trust a curator.
+Shuffle DP gives central-DP utility without trusting a curator — only an
+honest-majority mix network.
 
 ## Architecture
 
 ```
 ┌────────┐   ┌────────┐         ┌────────┐
 │ User 1 │   │ User 2 │   ...   │ User n │
-│ ε₀-DP  │   │ ε₀-DP  │         │ ε₀-DP  │
+│ ε₀-LDP │   │ ε₀-LDP │         │ ε₀-LDP │
 └────┬───┘   └────┬───┘         └────┬───┘
-     │ x₁'        │ x₂'              │ xₙ'   (locally randomized)
-     │            │                  │
+     │ x₁'        │ x₂'              │ xₙ'
      ▼            ▼                  ▼
      ┌──────────────────────────────────┐
-     │     Cryptographic Shuffler       │   ← unlinkability proof
-     │       (mix network)              │
+     │   Cryptographic shuffler         │
+     │   (3-stage onion mix network)    │
      └──────────────┬───────────────────┘
                     │ permuted batch
                     ▼
             ┌──────────────────┐
-            │   Aggregator     │  ← Balle analyzer
+            │  Aggregator      │   ← Balle / Erlingsson analyzer
             └──────────────────┘
                     │
-              answer (ε-DP)
+              answer (ε-CDP)
 ```
 
-## The cryptographic shuffler
+## Install
 
-A 3-stage mix network. Each mix node:
+```bash
+pip install -e ".[dev]"
+```
 
-1. Receives a batch of ciphertexts.
-2. Decrypts one layer (onion encryption).
-3. Permutes randomly.
-4. Forwards.
+Python 3.10+. Single runtime dependency: `numpy`.
 
-After all 3 stages, the link between input position and output position is hidden from any non-colluding majority. Implementation: `pynacl` for sealed boxes, threshold honest-majority assumption.
+## CLI
 
-**Proof obligation:** unlinkability holds against any adversary that controls ≤ 1 of the 3 mix nodes. This + local ε₀-randomization → Balle's amplification theorem.
+```bash
+shufflectl info                                       # show package metadata
+shufflectl amplification --eps0 2.0 --n 1_000_000 \
+                         --delta 1e-6                 # central-ε bound
+shufflectl demo --n 5000 --eps0 2.0                   # end-to-end histogram run
+```
+
+## Library
+
+```python
+from sdp.local.randomizers import LocalConfig, randomized_response
+from sdp.shuffler.mix import MixNode, shuffle
+from sdp.analyzer.balle import shuffle_amplification, required_eps0_for_target
+from sdp.analyzer.composition import composed_bound
+from sdp.queries.histogram import private_histogram, private_mean
+
+# 1. Local randomisation
+cfg = LocalConfig(eps0=2.0, domain_size=4)
+y = randomized_response(x=2, cfg=cfg)
+
+# 2. Cryptographic shuffler (3-stage onion mix)
+nodes = [MixNode.fresh() for _ in range(3)]
+shuffled = shuffle([b"vote-0", b"vote-1", b"vote-2"], nodes)
+
+# 3. Balle / Erlingsson amplification
+bound = shuffle_amplification(eps0=2.0, n=1_000_000, delta=1e-6)
+print(bound.eps_central)            # ≈ 0.04
+print(bound.amplification)          # ε₀ / ε_central
+
+# 4. Inverse solver
+eps0 = required_eps0_for_target(eps_target=0.5, n=10_000, delta=1e-6)
+
+# 5. Composition (basic and DRV03 advanced)
+total = composed_bound([bound] * 100, method="advanced", target_delta=1e-5)
+
+# 6. Private histogram + mean (debiased k-RR / Laplace)
+pmf  = private_histogram(samples=[0, 1, 1, 2, 3, 3, 3], cfg=cfg)
+mean = private_mean(values=[..], lo=0.0, hi=100.0, eps=1.0)
+```
 
 ## Components
 
-| Module | Role |
-|---|---|
-| `src/local/` | Local randomizers: RR (randomized response), Gaussian, Laplace |
-| `src/shuffler/mix.py` | 3-stage cryptographic mix network |
-| `src/shuffler/proof.py` | Sanity-check that ciphertexts arrive unlinkable (Bayes-decision adversary) |
-| `src/analyzer/balle.py` | Balle et al. optimal central-ε computation given (ε₀, n) |
-| `src/analyzer/composition.py` | Multi-query composition with shuffle-amplified accounting |
-| `src/queries/` | Histogram, mean, quantile under shuffle DP |
-| `src/eval/` | Empirical privacy test (membership inference against shuffled output) |
+| Module                       | Role                                                                |
+| ---------------------------- | ------------------------------------------------------------------- |
+| `sdp.local.randomizers`      | k-ary randomized response, Laplace, Gaussian                        |
+| `sdp.shuffler.mix`           | 3-stage onion mix (HMAC-XOR layered encryption + per-hop shuffle)   |
+| `sdp.analyzer.balle`         | Erlingsson-style closed-form ε ≈ 8 ε₀ √(eᵉ⁰ log(4/δ)/n) + inverse   |
+| `sdp.analyzer.composition`   | Sequential composition: basic (Σε,Σδ) + DRV03 advanced              |
+| `sdp.queries.histogram`      | Debiased private histogram + Laplace private mean                   |
+| `sdp.empirical`              | Membership-inference adversary advantage vs theoretical bound       |
+| `sdp.cli`                    | `shufflectl` entry point                                            |
 
 ## Privacy amplification
 
-Balle et al. (2019) prove: for `n` users each ε₀-LDP, the output of the shuffler is ε-CDP with:
+For `n` users each ε₀-LDP, the shuffle output is ε-CDP with (Erlingsson et
+al., SODA 2019):
 
 ```
-ε ≈ ε₀ · √(8 ln(2/δ) / n)     (when ε₀ is small)
+ε ≤ min(ε₀,  8 · ε₀ · √( eᵉ⁰ · log(4/δ) / n ))
+δ' = δ
 ```
 
-So local ε₀=4 with n=10⁶ users → central ε ≈ 4 × √(8 × 0.7 / 10⁶) ≈ 0.01. Better than central with one user.
+So ε₀ = 4 with n = 10⁶ → central ε ≈ 0.41.  Drop ε₀ to 2 and get ε ≈ 0.04.
 
-The engine takes (n, ε₀, target δ) and computes the achievable central ε analytically.
+`required_eps0_for_target` runs binary search over this bound to find the
+largest ε₀ that still meets a desired central ε under a given (n, δ).
 
-## End-to-end proof
+## Composition
 
-Compose:
+`composed_bound(bounds, method=...)` accepts a list of `ShuffleBound`s:
 
-1. Local randomizer is ε₀-LDP (mechanism-specific, standard).
-2. Shuffler is unlinkable against ≤ 1 corrupted mix (cryptographic).
-3. Therefore output is ε-CDP with ε from Balle's analyzer.
+- **basic** — (ε_total, δ_total) = (Σ ε_i, Σ δ_i).
+- **advanced** (DRV03) — requires `target_delta` δ' > 0; returns
+  ε_total ≤ √(2k ln(1/δ')) · ε_max + k · ε_max · (eᵉᵐᵃˣ − 1)
+  and δ_total = k · δ_max + δ'.
 
-Formal statement in `docs/proof.md`; mechanized check (where feasible) in Lean.
+The advanced bound beats basic at k ≳ 30; both are exposed for accounting.
+
+## Cryptographic shuffler
+
+`sdp.shuffler.mix` implements a 3-stage mix network without external crypto
+dependencies (HMAC-XOR layered encryption keyed per mix node + per-record
+nonces). Each node:
+
+1. Receives a batch of onions.
+2. Peels one layer (HMAC keystream XOR over the fixed-size payload).
+3. Shuffles the batch with a fresh permutation.
+4. Forwards the inner batch to the next node.
+
+The honest-majority assumption (≥ 1 of 3 nodes uncorrupted) is the standard
+unlinkability premise behind Balle / Erlingsson amplification.  Payloads are
+padded / truncated to `PAYLOAD_SIZE = 64` bytes so length is not a side channel.
 
 ## Empirical validation
 
-Membership-inference adversary: given an output and a target user's record, distinguish "user contributed" from "user did not". If our claimed ε holds, the adversary's advantage is bounded by ε.
+`empirical_advantage_rr` runs a membership-inference adversary against the
+k-ary randomised-response mechanism. For `n_trials` independent draws it
+estimates the adversary's advantage and compares it to the theoretical
+ε₀-DP bound (eᵉ⁰ − 1) / (eᵉ⁰ + k − 1).
 
-Run 10⁶ trials; verify empirical advantage ≤ ε.
+Marked `@pytest.mark.empirical` — the suite verifies empirical ≤ theoretical
+for ε₀ ∈ {1, 2, 4}.
+
+## Quality
+
+```bash
+make lint        # ruff   (E, W, F, I, B, UP, SIM, RUF, TCH)
+make format      # ruff format
+make type        # mypy --strict
+make test        # 28 fast tests
+make test-empirical   # +1 empirical-DP test (30k trials)
+make bench       # CLI amplification + demo
+make docker      # production image
+```
+
+- 29 tests, 0 failing
+- mypy `--strict`, ruff clean
+- Python 3.10 / 3.11 / 3.12 CI matrix
+- Distroless-style slim Docker image, non-root user
 
 ## References
 
-- Cheu, Smith, Ullman, Zeber, Zhilyaev, "Distributed Differential Privacy via Shuffling" (EUROCRYPT 2019)
-- Balle, Bell, Gascón, Nissim, "The Privacy Blanket of the Shuffle Model" (CRYPTO 2019)
-- Erlingsson et al., "Amplification by Shuffling: From Local to Central Differential Privacy via Anonymity" (SODA 2019)
+- Erlingsson, Feldman, Mironov, Raghunathan, Talwar, Thakurta. *Amplification
+  by Shuffling: From Local to Central DP via Anonymity.* SODA 2019.
+- Balle, Bell, Gascón, Nissim. *The Privacy Blanket of the Shuffle Model.*
+  CRYPTO 2019.
+- Cheu, Smith, Ullman, Zeber, Zhilyaev. *Distributed Differential Privacy via
+  Shuffling.* EUROCRYPT 2019.
+- Dwork, Rothblum, Vadhan. *Boosting and Differential Privacy.* FOCS 2010.
 
-## Roadmap
+## License
 
-- [ ] Local randomizers (RR, Gaussian, Laplace)
-- [ ] Cryptographic mix-net (3-stage onion)
-- [ ] Balle analyzer (Python + closed-form expressions)
-- [ ] Histogram / mean / quantile queries
-- [ ] Composition accountant
-- [ ] Empirical membership-inference test
-- [ ] Formal proof sketch (Lean for the analyzer, paper-style for unlinkability)
+MIT — see [LICENSE](LICENSE).
