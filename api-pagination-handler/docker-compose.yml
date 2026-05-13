@@ -1,0 +1,5 @@
+services:
+  aph:
+    build: .
+    image: api-pagination-handler:latest
+    command: ["info"]
