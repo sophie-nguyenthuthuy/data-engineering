@@ -1,0 +1,5 @@
+services:
+  psa:
+    build: .
+    image: partitioning-strategy-advisor:latest
+    command: ["info"]
