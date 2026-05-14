@@ -1,0 +1,5 @@
+services:
+  mtip:
+    build: .
+    image: multi-tenant-ingestion-platform:latest
+    command: ["info"]
