@@ -1,0 +1,5 @@
+services:
+  pvc:
+    build: .
+    image: postgres-vs-clickhouse-benchmark:latest
+    command: ["info"]
