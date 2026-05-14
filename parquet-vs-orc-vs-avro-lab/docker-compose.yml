@@ -1,0 +1,5 @@
+services:
+  pova:
+    build: .
+    image: parquet-vs-orc-vs-avro-lab:latest
+    command: ["info"]
