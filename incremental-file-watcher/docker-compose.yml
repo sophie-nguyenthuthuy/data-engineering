@@ -1,0 +1,5 @@
+services:
+  ifw:
+    build: .
+    image: incremental-file-watcher:latest
+    command: ["info"]
