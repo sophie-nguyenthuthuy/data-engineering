@@ -1,0 +1,5 @@
+services:
+  arlo:
+    build: .
+    image: api-rate-limit-orchestrator:latest
+    command: ["info"]
