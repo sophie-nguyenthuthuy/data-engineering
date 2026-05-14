@@ -1,0 +1,5 @@
+services:
+  lake:
+    build: .
+    image: minio-iceberg-lakehouse:latest
+    command: ["info"]
