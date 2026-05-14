@@ -1,0 +1,5 @@
+services:
+  tfl:
+    build: .
+    image: delta-vs-iceberg-vs-hudi:latest
+    command: ["info"]
