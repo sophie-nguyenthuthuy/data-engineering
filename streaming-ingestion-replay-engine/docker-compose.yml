@@ -1,0 +1,5 @@
+services:
+  sire:
+    build: .
+    image: streaming-ingestion-replay-engine:latest
+    command: ["info"]
