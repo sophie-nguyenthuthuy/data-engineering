@@ -1,0 +1,5 @@
+services:
+  lcdc:
+    build: .
+    image: log-based-cdc-from-scratch:latest
+    command: ["info"]
