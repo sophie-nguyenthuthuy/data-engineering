@@ -169,14 +169,16 @@ class RaftLog:
         config: List[str],
     ) -> None:
         async with self._lock:
+            # Compute the slice offset against the OLD snapshot first — once
+            # we overwrite self.snapshot, _offset() shifts and we'd drop nothing.
+            offset = self._offset(last_included_index + 1)
             self.snapshot = Snapshot(
                 last_included_index=last_included_index,
                 last_included_term=last_included_term,
                 data=state,
                 cluster_config=config,
             )
-            # Discard compacted entries
-            offset = self._offset(last_included_index + 1)
+            # Discard compacted entries (those at or before last_included_index)
             self._entries = self._entries[max(offset, 0):]
             self._flush_snapshot()
             self._rewrite_log()

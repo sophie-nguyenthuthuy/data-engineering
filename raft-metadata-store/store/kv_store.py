@@ -59,6 +59,12 @@ class KVStore:
 
     async def apply(self, command: Dict[str, Any]) -> Any:
         """Called by RaftNode for each committed log entry."""
+        # Config-change entries are tagged with `type`, data ops with `op`.
+        # Treat config entries as no-ops for the state machine — Raft itself
+        # is responsible for applying the membership change.
+        ctype = command.get("type")
+        if ctype in ("_noop", "_config_joint", "_config_final", "_config_remove"):
+            return None
         op = command.get("op")
         if op == "put":
             return await self._put(command["key"], command["value"], command.get("version"))
@@ -71,7 +77,7 @@ class KVStore:
         elif op in ("_noop", "_config_joint", "_config_final", "_config_remove"):
             return None
         else:
-            raise ValueError(f"unknown op: {op}")
+            raise ValueError(f"unknown op: {op}, type: {ctype}")
 
     async def snapshot(self) -> Dict[str, Any]:
         async with self._lock:

@@ -286,7 +286,19 @@ class RaftNode:
         new_config = sorted(set(new_config))
 
         cmd = {"type": "_config_remove", "remove_id": peer_id, "new_config": new_config}
-        await self.submit(cmd)
+        # Append as a config entry so the apply loop routes it through
+        # _apply_config_entry, which prunes the peer on every node.
+        entry = LogEntry(
+            term=self.log.current_term,
+            index=self.log.last_index + 1,
+            command=cmd,
+            entry_type="config",
+        )
+        await self.log.append(entry)
+        fut: asyncio.Future = asyncio.get_event_loop().create_future()
+        self._pending[entry.index] = fut
+        asyncio.create_task(self._replicate_once())
+        await asyncio.wait_for(fut, timeout=10.0)
 
     # ── Internal: elections ───────────────────────────────────────────────
 
