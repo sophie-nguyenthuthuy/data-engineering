@@ -1,5 +1,9 @@
-"""Classifier. Uses Claude if ANTHROPIC_API_KEY is set, else deterministic
-keyword-based mock. Same return contract so the worker doesn't care.
+"""Classifier. Uses a local Ollama server if TRIAGE_USE_REAL_LLM=1, else a
+deterministic keyword-based mock. Same return contract so the worker doesn't care.
+
+Open-source by default — no API keys. Point OLLAMA_HOST at any Ollama server
+(default http://127.0.0.1:11434) and pull the model in OLLAMA_MODEL
+(default llama3.2:3b — ~2 GB, fits on a laptop).
 """
 from __future__ import annotations
 
@@ -10,7 +14,10 @@ import re
 import time
 from dataclasses import dataclass
 
-MODEL_ID = "claude-haiku-4-5-20251001"
+import httpx
+
+DEFAULT_MODEL = "llama3.2:3b"
+DEFAULT_HOST = "http://127.0.0.1:11434"
 
 
 @dataclass
@@ -53,45 +60,48 @@ def _mock_classify(subject: str, body: str, labels: list[str]) -> Classification
     return Classification(label, conf, summary, priority, latency_ms=random.randint(40, 120), model="mock")
 
 
-def _claude_classify(subject: str, body: str, labels: list[str]) -> Classification:
-    # Keep the import local so the mock path stays dependency-free at import time.
-    from anthropic import Anthropic
-
-    client = Anthropic()  # reads ANTHROPIC_API_KEY
+def _ollama_classify(subject: str, body: str, labels: list[str]) -> Classification:
+    host = os.environ.get("OLLAMA_HOST", DEFAULT_HOST).rstrip("/")
+    model = os.environ.get("OLLAMA_MODEL", DEFAULT_MODEL)
     user = (
         f"Allowed labels: {labels}\n"
         f"Subject: {subject}\n"
         f"Body: {body}\n"
     )
     t0 = time.perf_counter()
-    resp = client.messages.create(
-        model=MODEL_ID,
-        max_tokens=256,
-        temperature=0.0,
-        system=[
-            {"type": "text", "text": SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}},
-        ],
-        messages=[{"role": "user", "content": user}],
+    resp = httpx.post(
+        f"{host}/api/chat",
+        timeout=120.0,
+        json={
+            "model": model,
+            "stream": False,
+            "format": "json",
+            "options": {"temperature": 0.0, "num_predict": 256},
+            "messages": [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": user},
+            ],
+        },
     )
+    resp.raise_for_status()
     latency_ms = int((time.perf_counter() - t0) * 1000)
-    text = "".join(b.text for b in resp.content if getattr(b, "type", "") == "text").strip()
-    # Strip markdown fences defensively.
-    text = re.sub(r"^```(?:json)?|```$", "", text.strip(), flags=re.MULTILINE).strip()
+    text = resp.json()["message"]["content"].strip()
+    text = re.sub(r"^```(?:json)?|```$", "", text, flags=re.MULTILINE).strip()
     data = json.loads(text)
-    label = data["label"] if data["label"] in labels else "spam"
+    label = data["label"] if data.get("label") in labels else "spam"
     return Classification(
         predicted_label=label,
         confidence=float(data.get("confidence", 0.5)),
         summary=str(data.get("summary", ""))[:200],
-        priority=data.get("priority", "low"),
+        priority=data.get("priority", "low") if data.get("priority") in {"low", "med", "high"} else "low",
         latency_ms=latency_ms,
-        model=MODEL_ID,
+        model=model,
     )
 
 
 def classify(subject: str, body: str, labels: list[str]) -> Classification:
     if not body or "INVALID" in body[:32]:
         raise ValueError("empty or poisoned payload")
-    if os.environ.get("ANTHROPIC_API_KEY") and os.environ.get("TRIAGE_USE_REAL_LLM") == "1":
-        return _claude_classify(subject, body, labels)
+    if os.environ.get("TRIAGE_USE_REAL_LLM") == "1":
+        return _ollama_classify(subject, body, labels)
     return _mock_classify(subject, body, labels)

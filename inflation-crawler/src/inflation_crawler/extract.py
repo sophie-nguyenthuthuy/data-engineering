@@ -5,20 +5,22 @@ Strategy (highest-signal first):
   2. Microdata (schema.org/Product) via extruct.
   3. OpenGraph product tags.
   4. Heuristic fallback: meta tags + price-parser on visible text.
-
-The LLM fallback (Anthropic) is optional and used only when the structured
-paths yield nothing, since it costs money. Set IC_ANTHROPIC_API_KEY to enable.
+  5. Optional LLM fallback via a local Ollama server (open source, no API key).
+     Enabled with IC_OLLAMA_ENABLED=true; override host/model with
+     IC_OLLAMA_HOST / IC_OLLAMA_MODEL.
 """
 
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
 import extruct
+import httpx
 from price_parser import Price
 from selectolax.parser import HTMLParser
 
@@ -200,8 +202,64 @@ def _extract_heuristic(html: str) -> dict[str, Any] | None:
     return None
 
 
+_LLM_PROMPT = (
+    "Extract the product info from this page text. Reply with ONLY a JSON object, "
+    'no prose: {"title": "...", "brand": "..." or null, "price": <number>, '
+    '"currency": "USD"|"EUR"|"GBP"|"JPY", "category": "..." or null}. '
+    "If no product is visible, return {}."
+)
+
+
+def _extract_llm(html: str) -> dict[str, Any] | None:
+    if not settings.ollama_enabled:
+        return None
+    tree = HTMLParser(html)
+    body = tree.body.text(separator=" ", strip=True) if tree.body else ""
+    if not body:
+        return None
+    snippet = re.sub(r"\s+", " ", body)[:4000]
+    try:
+        resp = httpx.post(
+            f"{settings.ollama_host.rstrip('/')}/api/chat",
+            timeout=120.0,
+            json={
+                "model": settings.ollama_model,
+                "stream": False,
+                "format": "json",
+                "options": {"temperature": 0.0, "num_predict": 256},
+                "messages": [
+                    {"role": "system", "content": _LLM_PROMPT},
+                    {"role": "user", "content": snippet},
+                ],
+            },
+        )
+        resp.raise_for_status()
+        text = resp.json()["message"]["content"].strip()
+    except (httpx.HTTPError, KeyError, ValueError) as exc:
+        log.debug("extract.llm.error", error=str(exc))
+        return None
+    text = re.sub(r"^```(?:json)?|```$", "", text, flags=re.MULTILINE).strip()
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(data, dict) or not data.get("title"):
+        return None
+    priced = _normalize_price(data.get("price"), data.get("currency"))
+    if not priced:
+        return None
+    return {
+        "title": str(data["title"]).strip(),
+        "brand": data.get("brand") if isinstance(data.get("brand"), str) else None,
+        "price": priced[0],
+        "currency": priced[1],
+        "category": data.get("category") if isinstance(data.get("category"), str) else None,
+        "source": "llm",
+    }
+
+
 def extract_product(html: str, url: str, fetch_time: str) -> Product | None:
-    for extractor in (_extract_jsonld, _extract_microdata, _extract_opengraph, _extract_heuristic):
+    for extractor in (_extract_jsonld, _extract_microdata, _extract_opengraph, _extract_heuristic, _extract_llm):
         try:
             result = extractor(html)
         except Exception as exc:  # noqa: BLE001 - extractors are best-effort

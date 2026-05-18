@@ -1,7 +1,7 @@
 # Kestra-shaped DAG: sequential tasks with retry policy
 id: email_triage
 namespace: triage
-description: Gmail -> PubSub -> Claude classify -> BigQuery -> Slack
+description: Gmail -> PubSub -> Ollama classify -> BigQuery -> Slack
 
 tenants:
   - id: acme
@@ -14,7 +14,7 @@ tenants:
     labels: [urgent, legal, hr, spam]
 
 processing:
-  model: claude-haiku-4-5-20251001
+  model: llama3.2:3b
   temperature: 0.0
   max_retries: 3
   backoff_base_seconds: 0.5

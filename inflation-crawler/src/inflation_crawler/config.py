@@ -14,7 +14,12 @@ class Settings(BaseSettings):
     cc_s3_endpoint: str = "https://data.commoncrawl.org"
 
     bls_api_key: str | None = None
-    anthropic_api_key: str | None = None
+
+    # Optional Ollama fallback for LLM-assisted extraction when structured
+    # extractors return nothing. Disabled unless ollama_enabled=true.
+    ollama_enabled: bool = False
+    ollama_host: str = "http://127.0.0.1:11434"
+    ollama_model: str = "llama3.2:3b"
 
     fetch_concurrency: int = 16
     fetch_timeout: float = 30.0

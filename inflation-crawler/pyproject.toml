@@ -32,7 +32,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-llm = ["anthropic>=0.28"]
+# LLM fallback uses a local Ollama server via plain httpx (already in deps),
+# so no extra package is required. Kept for backwards-compatible extras syntax.
+llm = []
 dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "respx>=0.21", "ruff>=0.4"]
 
 [project.scripts]

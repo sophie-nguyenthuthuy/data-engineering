@@ -135,7 +135,7 @@ class Store:
                     priority_reason = EXCLUDED.priority_reason,
                     sentiment       = EXCLUDED.sentiment,
                     model           = EXCLUDED.model,
-                    enriched_at     = current_timestamp,
+                    enriched_at     = now(),
                     input_hash      = EXCLUDED.input_hash
                 """,
                 [id, summary, json.dumps(actions), priority, priority_reason,

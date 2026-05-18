@@ -7,7 +7,8 @@
 A "better" version of the Gmail → dlt → BigQuery → OpenAI → Slack (on Kestra)
 workflow. Shape preserved; every external dependency is a **stub** behind a narrow
 swap-in interface so you can run the whole thing locally, then point it at real
-GCP / Slack / Anthropic / Gmail with ~50 lines of changes per service.
+GCP / Slack / Gmail with ~50 lines of changes per service. Inference runs against
+a **local Ollama** server — no API keys, no per-row cost.
 
 ## What's different vs. the diagram
 
@@ -17,7 +18,7 @@ GCP / Slack / Anthropic / Gmail with ~50 lines of changes per service.
 | dlt ingestion       | `src/stubs/gmail.py` → `src/ingest.py`                     | Narrow `iter_new_messages` contract |
 | (implicit queue)    | **Pub/Sub stub with ack deadlines, retry counter, DLQ**    | Explicit reliability primitive |
 | BigQuery            | DuckDB with BQ-shaped DDL (`emails_raw`, `emails_processed`, `runs`, `eval_results`) | Same SQL dialect, zero cost |
-| OpenAI              | **Claude** (`claude-haiku-4-5-20251001`) with a deterministic mock fallback | Better triage reasoning, cheap |
+| OpenAI              | **Ollama** (`llama3.2:3b` by default) with a deterministic mock fallback | Local, open source, zero API key |
 | Slack webhook       | JSONL outbox replay-able in dashboard                      | Verifiable without leaking to prod |
 | —                   | **Multi-tenant JWT auth** (tenant pinned in token, never in args) | Can't accidentally cross tenants |
 | —                   | **Web dashboard** — metrics, messages, DLQ, runs, eval     | Operability baked in |
@@ -53,7 +54,7 @@ triage_pipeline/
 │       ├── gmail.py          # synthetic emails, 8% poison pills for DLQ demo
 │       ├── pubsub.py         # DuckDB-backed queue, ack deadline, DLQ routing
 │       ├── warehouse.py      # BQ-shaped DuckDB tables
-│       ├── llm.py            # Claude (real) or deterministic mock
+│       ├── llm.py            # Ollama (real) or deterministic mock
 │       └── slack.py          # JSONL outbox
 └── tests/test_smoke.py       # ingest → process → eval, asserts rows land
 ```
@@ -63,7 +64,7 @@ triage_pipeline/
 - `stubs/gmail.py::iter_new_messages` → `googleapiclient.discovery.build('gmail','v1').users().messages().list(...)`
 - `stubs/pubsub.py` → `google.cloud.pubsub_v1.PublisherClient / SubscriberClient` (same publish/pull/ack/nack verbs)
 - `stubs/warehouse.py` → `google.cloud.bigquery.Client` (schema already BQ-compatible)
-- `stubs/llm.py::_claude_classify` is already the real Anthropic SDK path — set `ANTHROPIC_API_KEY` and `TRIAGE_USE_REAL_LLM=1`
+- `stubs/llm.py::_ollama_classify` calls a local Ollama server — `ollama serve && ollama pull llama3.2:3b`, then set `TRIAGE_USE_REAL_LLM=1` (override host/model with `OLLAMA_HOST` / `OLLAMA_MODEL`)
 - `stubs/slack.py::post` → `httpx.post(webhook_url, json=...)`
 
 ## Reliability model

@@ -8,7 +8,7 @@ A modern, local-first redesign of [uhussain/WebCrawlerForInflation](https://gith
 |--------------------------------------|-----------------------------------------------------------------|
 | AWS Athena over CC index             | **DuckDB** httpfs over the same Parquet index, runs locally     |
 | EMR + Spark, downloads full WARCs    | **Async httpx** + HTTP Range fetches a single record (~10 KB)   |
-| BeautifulSoup regex for prices       | **JSON-LD / microdata / OpenGraph** extractors, heuristic fallback, optional LLM |
+| BeautifulSoup regex for prices       | **JSON-LD / microdata / OpenGraph** extractors, heuristic fallback, optional local-Ollama LLM |
 | Pandas (single-thread)               | **Polars** (multi-threaded, log-return inflation)               |
 | DynamoDB local / S3 Parquet          | **DuckDB** single-file, queryable in place                      |
 | Dash + Plotly server                 | **FastAPI + Chart.js** single-page dashboard                    |
