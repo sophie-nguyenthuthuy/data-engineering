@@ -63,4 +63,7 @@ def test_property_p99_le_max(samples):
     s = summarise(samples)
     assert s.p99 <= s.max
     assert s.p50 <= s.p95 <= s.p99
-    assert s.min <= s.mean <= s.max
+    # Allow 1 ULP slack: when all samples are equal, sum/n can round 1 ULP
+    # below the common value, making mean < min by an imperceptible margin.
+    assert s.mean >= s.min - 1e-12
+    assert s.mean <= s.max + 1e-12

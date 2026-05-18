@@ -11,7 +11,6 @@ confluent-kafka==2.5.3
 # Validation
 great-expectations==0.18.19
 soda-core==3.3.12
-soda-core-pandas==3.3.12
 
 # Data
 pandas==2.2.3
