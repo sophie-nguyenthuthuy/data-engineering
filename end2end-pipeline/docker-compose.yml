@@ -7,7 +7,7 @@ x-common-env: &common-env
 services:
   # ---------- Kafka (KRaft, single-node) ----------
   kafka:
-    image: bitnami/kafka:3.7.1
+    image: soldevelo/kafka:3.7.1
     container_name: kafka
     restart: unless-stopped
     environment:
@@ -37,7 +37,7 @@ services:
       start_period: 20s
 
   kafka-init:
-    image: bitnami/kafka:3.7.1
+    image: soldevelo/kafka:3.7.1
     container_name: kafka-init
     depends_on:
       kafka:
