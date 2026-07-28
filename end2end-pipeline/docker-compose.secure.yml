@@ -69,7 +69,7 @@ secrets:
 services:
   # ---------------------------------------------------------------- Kafka
   kafka:
-    image: bitnami/kafka:3.7.1
+    image: soldevelo/kafka:3.7.1
     container_name: kafka
     restart: unless-stopped
     environment:
@@ -132,7 +132,7 @@ services:
 
   # Create the topics we need (auto-create is disabled) and provision ACLs.
   kafka-init:
-    image: bitnami/kafka:3.7.1
+    image: soldevelo/kafka:3.7.1
     container_name: kafka-init
     depends_on:
       kafka:
